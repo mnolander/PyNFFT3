@@ -4,11 +4,11 @@ from numpy import ctypeslib
 import os
 
 # Create class for NFFT plan
-class nfftplan(ctypes.Structure):
+class nfft_plan(ctypes.Structure):
     pass
 
 # Create class for complex doubles
-class ComplexDouble(ctypes.Structure):
+class complex_double(ctypes.Structure):
     _fields_ = [("real", ctypes.c_double), ("imag", ctypes.c_double)]
 
 # Determine the file extension for shared libraries based on the operating system

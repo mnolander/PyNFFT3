@@ -1,4 +1,4 @@
-#TODO: Text formatting?
+#TODO: Text formatting
 
 """
 PRE_PHI_HUT
@@ -226,4 +226,4 @@ f2_default = FFTW_ESTIMATE | FFTW_DESTROY_INPUT
 """
 default_window_cut_off
 """
-default_window_cut_off = 0  # TODO: Add proper nfft_get_default_window_cut_off ccall
+default_window_cut_off = 8  # TODO: Add proper nfft_get_default_window_cut_off ccall

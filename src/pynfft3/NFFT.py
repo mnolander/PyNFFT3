@@ -6,6 +6,7 @@ import ctypes
 import numpy as np
 from .flags import *
 from . import nfftlib
+from . import nfft_plan
 
 # """
 # NFFT{D}
@@ -56,8 +57,8 @@ from . import nfftlib
 # """
 
 # Create class for NFFT plan
-class nfft_plan(ctypes.Structure):
-    pass
+# class nfft_plan(ctypes.Structure):
+#     pass
 
 class NFFT:
     def __init__(self, N, M, n, m, f1, f2):
@@ -184,13 +185,13 @@ def nfft_init(P):
     # Initialize values
     nfftlib.jnfft_init(
         P.plan,
-        ctypes.c_int32(D),
-        Nv.ctypes.data_as(ctypes.POINTER(ctypes.c_int32)),
-        ctypes.c_int32(P.M),
-        n.ctypes.data_as(ctypes.POINTER(ctypes.c_int32)),
-        ctypes.c_int32(P.m),
-        ctypes.c_uint32(P.f1),
-        ctypes.c_uint32(P.f2)
+        ctypes.c_int(D),
+        Nv.ctypes.data_as(ctypes.POINTER(ctypes.c_int)),
+        ctypes.c_int(P.M),
+        n.ctypes.data_as(ctypes.POINTER(ctypes.c_int)),
+        ctypes.c_int(P.m),
+        ctypes.c_uint(P.f1),
+        ctypes.c_uint(P.f2)
     )
     P.init_done = True
 
@@ -275,7 +276,7 @@ def setproperty(P, v, val):
         case _:
             setattr(P, v, val)
 
-def setproperty(P, v):
+def getproperty(P, v):
     if v == 'x':
         if P.x is None:
             raise AttributeError("x is not set.")

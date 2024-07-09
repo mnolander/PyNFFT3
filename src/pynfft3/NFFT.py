@@ -302,3 +302,123 @@ def setproperty(P, v):
     
     else:
         return P.__dict__[v]
+
+# # nfft trafo direct [call with NFFT.trafo_direct outside module]
+# """
+#     nfft_trafo_direct(P)
+
+# computes the NDFT via naive matrix-vector multiplication for provided nodes ``\pmb{x}_j, j =1,2,\dots,M,`` in `P.X` and coefficients ``\hat{f}_{\pmb{k}} \in \mathbb{C}, \pmb{k} \in I_{\pmb{N}}^D,`` in `P.fhat`.
+
+# # Input
+# * `P` - a NFFT plan structure.
+
+# # See also
+# [`NFFT{D}`](@ref), [`nfft_trafo`](@ref)
+# """
+
+def nfft_trafo_direct(P):
+    # Prevent bad stuff from happening
+    if P.finalized:
+        raise RuntimeError("NFFT already finalized")
+
+    if P.fhat is None:
+        raise ValueError("fhat has not been set.")
+
+    if P.x is None:
+        raise ValueError("x has not been set.")
+
+    ptr = nfftlib.jnfft_trafo_direct(P.plan)
+    P.f = ptr
+
+def trafo_direct(P):
+    return nfft_trafo_direct(P)
+
+# # adjoint trafo direct [call with NFFT.adjoint_direct outside module]
+# """
+#     nfft_adjoint_direct(P)
+
+# computes the adjoint NDFT via naive matrix-vector multiplication for provided nodes ``\pmb{x}_j, j =1,2,\dots,M,`` in `P.X` and coefficients ``f_j \in \mathbb{C}, j =1,2,\dots,M,`` in `P.f`.
+
+# # Input
+# * `P` - a NFFT plan structure.
+
+# # See also
+# [`NFFT{D}`](@ref), [`nfft_adjoint`](@ref)
+# """
+
+def nfft_adjoint_direct(P):
+    # Prevent bad stuff from happening
+    if P.finalized:
+        raise RuntimeError("NFFT already finalized")
+
+    if not hasattr(P, 'f'):
+        raise ValueError("f has not been set.")
+
+    if not hasattr(P, 'x'):
+        raise ValueError("x has not been set.")
+
+    ptr = nfftlib.jnfft_adjoint_direct(P.plan)
+    P.fhat = ptr
+
+def adjoint_direct(P):
+    return nfft_adjoint_direct(P)
+
+# # nfft trafo [call with NFFT.trafo outside module]
+# """
+#     nfft_trafo(P)
+
+# computes the NDFT via the fast NFFT algorithm for provided nodes ``\pmb{x}_j, j =1,2,\dots,M,`` in `P.X` and coefficients ``\hat{f}_{\pmb{k}} \in \mathbb{C}, \pmb{k} \in I_{\pmb{N}}^D,`` in `P.fhat`.
+
+# # Input
+# * `P` - a NFFT plan structure.
+
+# # See also
+# [`NFFT{D}`](@ref), [`nfft_trafo_direct`](@ref)
+# """
+
+def nfft_trafo(P):
+    # Prevent bad stuff from happening
+    if P.finalized:
+        raise RuntimeError("NFFT already finalized")
+
+    if not hasattr(P, 'fhat'):
+        raise ValueError("fhat has not been set.")
+
+    if not hasattr(P, 'x'):
+        raise ValueError("x has not been set.")
+
+    ptr = nfftlib.jnfft_trafo(P.plan)
+    P.f = ptr
+
+def trafo(P):
+    return nfft_trafo(P)
+
+# # adjoint trafo [call with NFFT.adjoint outside module]
+# """
+#     nfft_adjoint(P)
+
+# computes the adjoint NDFT via the fast adjoint NFFT algorithm for provided nodes ``\pmb{x}_j, j =1,2,\dots,M,`` in `P.X` and coefficients ``f_j \in \mathbb{C}, j =1,2,\dots,M,`` in `P.f`.
+
+# # Input
+# * `P` - a NFFT plan structure.
+
+# # See also
+# [`NFFT{D}`](@ref), [`nfft_adjoint_direct`](@ref)
+# """
+
+def nfft_adjoint(P):
+    # Prevent bad stuff from happening
+    if P.finalized:
+        raise RuntimeError("NFFT already finalized")
+
+    if not hasattr(P, 'f'):
+        raise ValueError("f has not been set.")
+
+    if not hasattr(P, 'x'):
+        raise ValueError("x has not been set.")
+
+    ptr = nfftlib.jnfft_adjoint(P.plan)
+    P.fhat = ptr
+
+def adjoint(P):
+    return nfft_adjoint(P)

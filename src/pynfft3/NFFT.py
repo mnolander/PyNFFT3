@@ -89,6 +89,7 @@ class NFFT:
         self.M = M  # number of nodes
         self.n = n  # oversampling per dimension
         self.m = m  # window size
+        self.D = len(N) # dimensions
         self.f1 = f1  # NFFT flags
         self.f2 = f2  # FFTW flags
         self.init_done = False  # bool for plan init
@@ -150,7 +151,7 @@ def create_NFFT_with_defaults(N, M, n, m=int(default_window_cut_off), f1=None, f
 
 def nfft_finalize_plan(P):
     nfftlib.jnfft_finalize.argtypes = (
-        ctypes.POINTER(nfft_plan),   # p
+        ctypes.POINTER(nfft_plan),   # P
     )
 
     if not P.init_done:
@@ -176,8 +177,6 @@ def finalize_plan(P):
 # [`NFFT{D}`](@ref), [`nfft_finalize_plan`](@ref)
 
 def nfft_init(P):
-    D = len(P.N)
-
     # Convert N and n to numpy arrays for passing them to C
     Nv = np.array(P.N, dtype=np.int32)
     n = np.array(P.n, dtype=np.int32)
@@ -190,8 +189,8 @@ def nfft_init(P):
     P.plan = ctypes.cast(ptr, ctypes.POINTER(nfft_plan))
 
     nfftlib.jnfft_init.argtypes = (
-        ctypes.POINTER(nfft_plan),   # p
-        ctypes.c_int,               # d
+        ctypes.POINTER(nfft_plan),   # P
+        ctypes.c_int,               # D
         ctypes.POINTER(ctypes.c_int), # N
         ctypes.c_int,               # M
         ctypes.POINTER(ctypes.c_int), # n
@@ -203,7 +202,7 @@ def nfft_init(P):
     # Initialize values
     nfftlib.jnfft_init(
         P.plan,
-        ctypes.c_int(D),
+        ctypes.c_int(P.D),
         ctypes.cast(Nv.ctypes.data, ctypes.POINTER(ctypes.c_int)),
         ctypes.c_int(P.M),
         ctypes.cast(n.ctypes.data, ctypes.POINTER(ctypes.c_int)),
@@ -230,8 +229,7 @@ def setproperty(P, v, val):
 
     # Setting nodes, verification of correct size dxM
     if v == 'x':
-        D = len(P.N)
-        if D == 1:
+        if P.D == 1:
             if not isinstance(val, np.ndarray) or val.dtype != np.float64:
                 raise ValueError("x has to be a Float64 vector")
             if val.shape[0] != P.M:
@@ -239,7 +237,7 @@ def setproperty(P, v, val):
         else:
             if not isinstance(val, np.ndarray) or val.dtype != np.float64:
                 raise ValueError("x has to be a Float64 matrix")
-            if val.shape[0] != D or val.shape[1] != P.M:
+            if val.shape[0] != P.D or val.shape[1] != P.M:
                 raise ValueError("x has to be a Float64 matrix of size dxM")
         
         ptr = nfftlib.jnfft_set_x(P.plan, val.ctypes.data_as(ctypes.POINTER(ctypes.c_double)))

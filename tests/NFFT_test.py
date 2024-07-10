@@ -15,3 +15,5 @@ print(test_nfft)
 #init(test_nfft)
 nfft_init(test_nfft)
 
+fhat_val = np.array([1+1j, 2+2j, 3+3j, 4+4j], dtype=np.complex128)
+setproperty(test_nfft, "fhat", fhat_val)

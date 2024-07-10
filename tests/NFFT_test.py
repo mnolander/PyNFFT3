@@ -9,8 +9,9 @@ N = np.array([2])
 M = 2
 
 test_nfft = create_NFFT(N, M)
-test_nfft_default = create_NFFT_with_defaults(N, M, n)
+#test_nfft = create_NFFT_with_defaults(N, M, n)
 print(test_nfft)
-print(test_nfft_default)
 
+#init(test_nfft)
 nfft_init(test_nfft)
+

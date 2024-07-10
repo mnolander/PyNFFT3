@@ -4,6 +4,7 @@
 import warnings
 import ctypes
 import numpy as np
+import atexit
 from .flags import *
 from . import nfftlib
 from . import nfft_plan
@@ -177,26 +178,36 @@ def nfft_init(P):
     n = np.array(P.n, dtype=np.int32)
 
     # Call init for memory allocation
+    nfftlib.jnfft_alloc.restype = ctypes.POINTER(nfft_plan)
     ptr = nfftlib.jnfft_alloc()
 
     # Set the pointer
     P.plan = ctypes.cast(ptr, ctypes.POINTER(nfft_plan))
 
+    nfftlib.jnfft_init.argtypes = (
+        ctypes.POINTER(nfft_plan),   # p
+        ctypes.c_int,               # d
+        ctypes.POINTER(ctypes.c_int), # N
+        ctypes.c_int,               # M
+        ctypes.POINTER(ctypes.c_int), # n
+        ctypes.c_int,               # m
+        ctypes.c_uint,              # f1
+        ctypes.c_uint               # f2
+    )
+
     # Initialize values
     nfftlib.jnfft_init(
         P.plan,
         ctypes.c_int(D),
-        Nv.ctypes.data_as(ctypes.POINTER(ctypes.c_int)),
+        ctypes.cast(Nv.ctypes.data, ctypes.POINTER(ctypes.c_int)),
         ctypes.c_int(P.M),
-        n.ctypes.data_as(ctypes.POINTER(ctypes.c_int)),
+        ctypes.cast(n.ctypes.data, ctypes.POINTER(ctypes.c_int)),
         ctypes.c_int(P.m),
         ctypes.c_uint(P.f1),
         ctypes.c_uint(P.f2)
     )
     P.init_done = True
 
-    #TODO: Test garbage collector
-    import atexit
     atexit.register(nfft_finalize_plan, P)
 
 def init(P):

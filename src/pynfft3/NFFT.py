@@ -8,6 +8,7 @@ import atexit
 from .flags import *
 from . import nfftlib
 from . import nfft_plan
+from . import complex_double
 
 # """
 # NFFT{D}
@@ -148,12 +149,16 @@ def create_NFFT_with_defaults(N, M, n, m=int(default_window_cut_off), f1=None, f
 # """
 
 def nfft_finalize_plan(P):
+    nfftlib.jnfft_finalize.argtypes = (
+        ctypes.POINTER(nfft_plan),   # p
+    )
+
     if not P.init_done:
         raise ValueError("NFFT not initialized.")
 
     if not P.finalized:
         P.finalized = True
-        nfftlib.jnfft_finalize(ctypes.byref(P.plan))
+        nfftlib.jnfft_finalize(P.plan)
 
 def finalize_plan(P):
     return nfft_finalize_plan(P)
@@ -247,7 +252,7 @@ def setproperty(P, v, val):
             raise ValueError("f has to be a ComplexFloat64 vector of size M")
         
         f_complex = val.astype(np.complex128)
-        ptr = nfftlib.jnfft_set_f(P.plan, f_complex.ctypes.data_as(ctypes.POINTER(ctypes.c_complex)))
+        ptr = nfftlib.jnfft_set_f(P.plan, f_complex.ctypes.data_as(ctypes.POINTER(complex_double)))
         P.f = ptr
         # Setting Fourier coefficients
 
@@ -259,7 +264,7 @@ def setproperty(P, v, val):
             raise ValueError("fhat has to be a ComplexFloat64 vector of size prod(N)")
         
         fhat_complex = val.astype(np.complex128)
-        ptr = nfftlib.jnfft_set_fhat(P.plan, fhat_complex.ctypes.data_as(ctypes.POINTER(ctypes.c_complex)))
+        ptr = nfftlib.jnfft_set_fhat(P.plan, fhat_complex.ctypes.data_as(ctypes.POINTER(complex_double)))
         P.fhat = ptr
 
     elif v in ['plan', 'num_threads', 'init_done', 'N', 'M', 'n', 'm', 'f1', 'f2']:

@@ -1,4 +1,4 @@
-#TODO: Text formatting
+import ctypes
 
 """
 PRE_PHI_HUT
@@ -192,20 +192,20 @@ FFTW_WISDOM_ONLY = 1 << 21
 """
 f1_default_1d
 """
-f1_default_1d = (
+f1_default_1d = ctypes.c_uint32(
     PRE_PHI_HUT |
     PRE_PSI |
     MALLOC_X |
     MALLOC_F_HAT |
     MALLOC_F |
     FFTW_INIT |
-    FFT_OUT_OF_PLACE
+    FFT_OUT_OF_PLACE,
 )
 
 """
 f1_default
 """
-f1_default = (
+f1_default = ctypes.c_uint32(
     PRE_PHI_HUT |
     PRE_PSI |
     MALLOC_X |
@@ -214,16 +214,22 @@ f1_default = (
     FFTW_INIT |
     FFT_OUT_OF_PLACE |
     NFCT_SORT_NODES |
-    NFCT_OMP_BLOCKWISE_ADJOINT
+    NFCT_OMP_BLOCKWISE_ADJOINT,
 )
 
 """
 f2_default
 """
-f2_default = FFTW_ESTIMATE | FFTW_DESTROY_INPUT
+f2_default = ctypes.c_uint32(FFTW_ESTIMATE | FFTW_DESTROY_INPUT)
 
 # Default window cut off
 """
 default_window_cut_off
 """
 default_window_cut_off = 8  # TODO: Add proper nfft_get_default_window_cut_off ccall
+
+BASES = {
+    "exp": 0,
+    "cos": 1,
+    "alg": 2
+}

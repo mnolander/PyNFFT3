@@ -24,7 +24,7 @@ plan.f = f   # this gets overwritten
 plan.fhat = fhat
 
 # test traffo
-NFFT.trafo(plan) # value is in plan.f
+plan.trafo() # value is in plan.f
 
 # compare with directly computed
 I = [[k, i, j] for  k in range(int(-N[0]/2),int(N[0]/2)) for i in range(int(-N[1]/2),int(N[1]/2)) for j in range(int(-N[2]/2),int(N[2]/2))]
@@ -33,7 +33,11 @@ F = np.array([[np.exp(-2 * np.pi * 1j * np.dot(X.T[:,j],I[l])) for l in range (0
 
 f1 = F @ fhat
 
-print(plan.f)
+print("Planf=",plan.f)
+print("f1=",f1)
+print("I=",I)
+print("F=",F)
+print("fhat=",fhat)
 
 # np.linalg.norm(f1-plan.f)  # around e-13
 # np.linalg.norm(f1-plan.f,np.inf)

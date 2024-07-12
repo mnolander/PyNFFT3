@@ -65,6 +65,17 @@ nfftlib.jnfft_init.argtypes = [ctypes.POINTER(nfft_plan),
 
 nfftlib.jnfft_alloc.restype = ctypes.POINTER(nfft_plan)
 
+# finalize
+nfftlib.jnfft_finalize.argtypes = [ctypes.POINTER(nfft_plan)]
+nfftlib.jnfft_set_x.argtypes = [ctypes.POINTER(nfft_plan), np.ctypeslib.ndpointer(np.float64, ndim=2, flags='C')]
+nfftlib.jnfft_set_x.restype = np.ctypeslib.ndpointer(dtype=np.float64, ndim=2, flags='C_CONTIGUOUS')
+nfftlib.jnfft_set_f.argtypes = [ctypes.POINTER(nfft_plan), np.ctypeslib.ndpointer(np.complex128, ndim=1, flags='C')] 
+nfftlib.jnfft_set_f.restype = np.ctypeslib.ndpointer(np.complex128, ndim=1, flags='C') # unfortunately this does not work, need to add line below later
+
+# exactly the same for set fhat
+nfftlib.jnfft_set_fhat.argtypes = [ctypes.POINTER(nfft_plan), np.ctypeslib.ndpointer(np.complex128, ndim=1, flags='C')] 
+nfftlib.jnfft_set_fhat.restype = np.ctypeslib.ndpointer(np.complex128, ndim=1, flags='C') # unfortunately this does not work, need to add line below later
+
 class NFFT:
     def __init__(self, N, M, n=None, m=default_window_cut_off, f1=None, f2=f2_default):
         self.plan = nfftlib.jnfft_alloc()
@@ -107,7 +118,7 @@ class NFFT:
 
         self.f2 = f2  # FFTW flags
         nfftlib.jnfft_init(self.plan, self.D, N_ct, self.M, n_ct, self.m, self.f1, self.f2)
-        self.init_done = False  # bool for plan init
+        self.init_done = True  # bool for plan init
         self.finalized = False  # bool for finalizer
         self.x = None  # nodes, will be set later
         self.f = None  # function values
@@ -193,107 +204,46 @@ class NFFT:
 
     def init(self):
         return self.nfft_init()
+    
+    @property
+    def X(self):
+        return self._X
 
-    # Overwrite dot notation for plan struct in order to use C memory
-    def setproperty(self, v, val):
-        # Init plan if not done [usually with setting nodes]
-        if not self.init_done:
-            self.nfft_init
+    @X.setter 
+    def X(self, value):
+        if value is not None:
+            if not (isinstance(value,np.ndarray) and value.dtype == np.float64 and value.flags['C']):
+                raise RuntimeError("X has to be C-continuous, numpy float64 array")
+            # @TODO: check dimensions and values  
+            nfftlib.jnfft_set_x.restype = np.ctypeslib.ndpointer(dtype=np.float64, ndim=2, shape=(self.M,self.D), flags='C')
+            self._X = nfftlib.jnfft_set_x(self.plan, value)
+    
+    @property
+    def f(self):
+        return self._f
+    
+    @f.setter 
+    def f(self, value):
+        if value is not None:
+            if not (isinstance(value,np.ndarray) and value.dtype == np.complex128 and value.flags['C']):
+                raise RuntimeError("f has to be C-continuous, numpy complex128 array")
+            # @TODO: check dimensions and values  
+            nfftlib.jnfft_set_f.restype = np.ctypeslib.ndpointer(np.complex128, ndim=1, shape=(self.M,), flags='C') 
+            self._f = nfftlib.jnfft_set_f(self.plan, value)
 
-        # Prevent bad stuff from happening
-        if self.finalized:
-            raise ValueError("NFFT already finalized")
-
-        # Setting nodes, verification of correct size dxM
-        if v == 'x':
-            if self.D == 1:
-                if not isinstance(val, np.ndarray) or val.dtype != np.float64:
-                    raise ValueError("x has to be a Float64 vector")
-                if val.shape[0] != self.M:
-                    raise ValueError("x has to be a Float64 vector of length M")
-            else:
-                if not isinstance(val, np.ndarray) or val.dtype != np.float64:
-                    raise ValueError("x has to be a Float64 matrix")
-                if val.shape[0] != self.D or val.shape[1] != self.M:
-                    raise ValueError("x has to be a Float64 matrix of size dxM")
-            
-            ptr = nfftlib.jnfft_set_x(self.plan, val.ctypes.data_as(ctypes.POINTER(ctypes.c_double)))
-            self.x = ptr
-
-        elif v == 'f':
-            if not isinstance(val, np.ndarray) or not np.issubdtype(val.dtype, np.number):
-                raise ValueError("f has to be a vector of numbers")
-            if val.shape[0] != self.M:
-                raise ValueError("f has to be a ComplexFloat64 vector of size M")
-            
-            f_complex = val.astype(np.complex128)
-            ptr = nfftlib.jnfft_set_f(self.plan, f_complex.ctypes.data_as(ctypes.POINTER(np.complex128)))
-            self.f = ptr
-            # Setting Fourier coefficients
-
-        elif v == 'fhat':
-            if not isinstance(val, np.ndarray) or not np.issubdtype(val.dtype, np.number):
-                raise ValueError("fhat has to be a vector of numbers")
-            l = np.prod(self.N)
-            if val.shape[0] != l:
-                raise ValueError("fhat has to be a ComplexFloat64 vector of size prod(N)")
-            
-            fhat_complex = val.astype(np.complex128)
-            ptr = nfftlib.jnfft_set_fhat(self.plan, fhat_complex.ctypes.data_as(ctypes.POINTER(np.complex128)))
-            self.fhat = ptr
-
-        elif v in ['plan', 'num_threads', 'init_done', 'N', 'M', 'n', 'm', 'f1', 'f2']:
-            warnings.warn(f"You can't modify {v}, please create an additional plan.")
-
-        match v:
-            case 'plan':
-                warnings.warn("You can't modify the C pointer to the NFFT plan.")
-            case 'num_threads':
-                warnings.warn("You can't currently modify the number of threads.")
-            case 'init_done':
-                warnings.warn("You can't modify this flag.")
-            case 'N':
-                warnings.warn("You can't modify the bandwidth, please create an additional plan.")
-            case 'M':
-                warnings.warn("You can't modify the number of nodes, please create an additional plan.")
-            case 'n':
-                warnings.warn("You can't modify the oversampling parameter, please create an additional plan.")
-            case 'm':
-                warnings.warn("You can't modify the window size, please create an additional plan.")
-            case 'f1':
-                warnings.warn("You can't modify the NFFT flags, please create an additional plan.")
-            case 'f2':
-                warnings.warn("You can't modify the FFTW flags, please create an additional plan.")
-            case _:
-                setattr(self, v, val)
-
-    def getproperty(self, v):
-        if v == 'x':
-            if self.x is None:
-                raise AttributeError("x is not set.")
-            ptr = self.x
-            if self.D == 1:
-                return np.ctypeslib.as_array(ptr, shape=(self.M,)) # Get nodes from C memory and convert to Python type
-            else:
-                return np.ctypeslib.as_array(ptr, shape=(self.D, self.M)) # Get nodes from C memory and convert to Python type
-        
-        elif v == 'num_threads':
-            return nfftlib.nfft_get_num_threads()
-        
-        elif v == 'f':
-            if self.f is None:
-                raise AttributeError("f is not set.")
-            ptr = self.f
-            return np.ctypeslib.as_array(ptr, shape=(self.M,)) # Get function values from C memory and convert to Python type
-        
-        elif v == 'fhat':
-            if self.fhat is None:
-                raise AttributeError("fhat is not set.")
-            ptr = self.fhat
-            return np.ctypeslib.as_array(ptr, shape=(np.prod(self.N),)) # Get function values from C memory and convert to Python type
-        
-        else:
-            return self.__dict__[v]
+    @property
+    def fhat(self):
+        return self._fhat
+    
+    @fhat.setter 
+    def fhat(self, value):
+        if value is not None:
+            if not (isinstance(value,np.ndarray) and value.dtype == np.complex128 and value.flags['C']):
+                raise RuntimeError("fhat has to be C-continuous, numpy complex128 array")
+            # @TODO: check dimensions and values  
+            Ns = np.prod(self.N)
+            nfftlib.jnfft_set_fhat.restype = np.ctypeslib.ndpointer(np.complex128, ndim=1, shape=(Ns,), flags='C') 
+            self._fhat = nfftlib.jnfft_set_fhat(self.plan, value)
 
     # # nfft trafo direct [call with NFFT.trafo_direct outside module]
     # """
@@ -369,7 +319,6 @@ class NFFT:
     # """
 
     def nfft_trafo(self):
-        nfftlib.jnfft_trafo.argtypes = [ctypes.POINTER(nfft_plan)]
         nfftlib.jnfft_trafo.restype = np.ctypeslib.ndpointer(np.complex128, shape=(self.M,), flags='C')
         # Prevent bad stuff from happening
         if self.finalized:
@@ -380,19 +329,8 @@ class NFFT:
 
         if not hasattr(self, 'x'):
             raise ValueError("x has not been set.")
-        
-        # attributes = [
-        #     'N', 'M', 'n', 'm', 'D', 'f1', 'f2',
-        #     'init_done', 'finalized', 'x', 'f', 'fhat', 'plan'
-        # ]
-        
-        # for attr in attributes:
-        #     value = getattr(self, attr)
-        #     print(f"{attr} (type: {type(value)}): {value}")
 
         ptr = nfftlib.jnfft_trafo(self.plan)
-        print("PTR=",ptr)
-
         self.f = ptr
 
     def trafo(self):

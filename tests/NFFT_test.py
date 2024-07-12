@@ -29,33 +29,33 @@ print(plan.f2)
 
 # Test init
 #init(plan)
-nfft_init(plan)
+NFFT.nfft_init(plan)
 
 # Test setting x, fhat, and f
 x_val = np.array([3.0, 4.0], dtype=np.float64)
 f_val = np.array([1+1j, 2+2j], dtype=np.complex128)
 fhat_val = np.array([6+7j, 2+3j], dtype=np.complex128)
-setproperty(plan, "x", x_val)
-setproperty(plan, "fhat", fhat_val)
-setproperty(plan, "f", f_val)
+NFFT.setproperty(plan, "x", x_val)
+NFFT.setproperty(plan, "fhat", fhat_val)
+NFFT.setproperty(plan, "f", f_val)
 
 # Test retrieving x, fhat, and f
-print("P.x:",getproperty(plan, "x"))
-print("P.fhat:",getproperty(plan, "fhat"))
-print("P.f:",getproperty(plan, "f"))
+print("P.x:",NFFT.getproperty(plan, "x"))
+print("P.fhat:",NFFT.getproperty(plan, "fhat"))
+print("P.f:",NFFT.getproperty(plan, "f"))
 
-nfft_trafo_direct(plan)
+NFFT.nfft_trafo_direct(plan)
 #trafo_direct(plan)
-print("P.f:",getproperty(plan, "f"))
+print("P.f:",NFFT.getproperty(plan, "f"))
 
-nfft_adjoint_direct(plan)
+NFFT.nfft_adjoint_direct(plan)
 #adjoint_direct(plan)
-print("P.fhat:",getproperty(plan, "fhat"))
+print("P.fhat:",NFFT.getproperty(plan, "fhat"))
 
-nfft_trafo(plan)
+NFFT.nfft_trafo(plan)
 #trafo(plan)
-print("P.f:",getproperty(plan, "f"))
+print("P.f:",NFFT.getproperty(plan, "f"))
 
-nfft_adjoint(plan)
+NFFT.nfft_adjoint(plan)
 #adjoint(plan)
-print("P.fhat:",getproperty(plan, "fhat"))
+print("P.fhat:",NFFT.getproperty(plan, "fhat"))

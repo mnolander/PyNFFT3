@@ -1,6 +1,3 @@
-#TODO: Text formatting
-#TODO: Combine constructors
-
 import warnings
 import ctypes
 import numpy as np
@@ -8,7 +5,6 @@ import atexit
 from .flags import *
 from . import nfftlib
 from . import nfft_plan
-from . import complex_double
 
 # """
 # NFFT{D}
@@ -58,12 +54,27 @@ from . import complex_double
 #     NFFT( N::NTuple{D,Int32}, M::Int32 ) where {D}
 # """
 
-# Create class for NFFT plan
-# class nfft_plan(ctypes.Structure):
-#     pass
+nfftlib.jnfft_init.argtypes = [ctypes.POINTER(nfft_plan), 
+                               ctypes.c_int32, 
+                               ctypes.POINTER(ctypes.c_int32), 
+                               ctypes.c_int32, 
+                               ctypes.POINTER(ctypes.c_int32), 
+                               ctypes.c_int32, 
+                               ctypes.c_uint32, 
+                               ctypes.c_uint32]
+
+nfftlib.jnfft_alloc.restype = ctypes.POINTER(nfft_plan)
 
 class NFFT:
-    def __init__(self, N, M, n, m, f1, f2):
+    def __init__(self, N, M, n=None, m=default_window_cut_off, f1=None, f2=f2_default):
+        self.plan = nfftlib.jnfft_alloc()
+        self.N = N  # bandwidth tuple
+        N_ct = N.ctypes.data_as(ctypes.POINTER(ctypes.c_int32))
+        self.M = M  # number of nodes
+        self.n = n  # oversampling per dimension
+        self.m = m  # window size
+        self.D = len(N)  # dimensions
+
         if any(x <= 0 for x in N):
             raise ValueError(f"Invalid N: {N}. Argument must be a positive integer")
         
@@ -72,368 +83,347 @@ class NFFT:
         
         if M <= 0:
             raise ValueError(f"Invalid M: {M}. Argument must be a positive integer")
+
+        if n is None:
+            self.n = (2 ** (np.ceil( np.log(self.N) / np.log(2)) +1 )).astype('int32')
+            n_ct = self.n.ctypes.data_as(ctypes.POINTER(ctypes.c_int32))
+
+        if any(x <= 0 for x in self.n):
+            raise ValueError(f"Invalid n: {self.n}. Argument must be a positive integer")
         
-        if any(x <= 0 for x in n):
-            raise ValueError(f"Invalid n: {n}. Argument must be a positive integer")
+        if any(x <= y for x, y in zip(self.n, N)):
+            raise ValueError(f"Invalid n: {self.n}. Argument must fulfil n_i > N_i")
         
-        if any(x <= y for x, y in zip(n, N)):
-            raise ValueError(f"Invalid n: {n}. Argument must fulfill n_i > N_i")
-        
-        if sum(x % 2 for x in n) != 0:
-            raise ValueError(f"Invalid n: {n}. Argument must be an even integer")
+        if sum(x % 2 for x in self.n) != 0:
+            raise ValueError(f"Invalid n: {self.n}. Argument must be an even integer")
         
         if m <= 0:
             raise ValueError(f"Invalid m: {m}. Argument must be a positive integer")
-        
-        self.N = N  # bandwidth tuple
-        self.M = M  # number of nodes
-        self.n = n  # oversampling per dimension
-        self.m = m  # window size
-        self.D = len(N) # dimensions
-        self.f1 = f1  # NFFT flags
+
+        if f1 is None:
+            self.f1 = f1_default if self.D > 1 else f1_default_1d
+        else:
+            self.f1 = f1
+
         self.f2 = f2  # FFTW flags
+        nfftlib.jnfft_init(self.plan, self.D, N_ct, self.M, n_ct, self.m, self.f1, self.f2)
         self.init_done = False  # bool for plan init
         self.finalized = False  # bool for finalizer
         self.x = None  # nodes, will be set later
         self.f = None  # function values
         self.fhat = None  # Fourier coefficients
-        self.plan = ctypes.POINTER(nfft_plan)()  # plan (C pointer)
+    
+    # # finalizer
+    # """
+    #     nfft_finalize_plan(P)
 
-# additional constructor for easy use [NFFT((N,N),M) instead of NFFT{2}((N,N),M)]
-def create_NFFT(N, M):
-    if any(x <= 0 for x in N):
-        raise ValueError(f"Invalid N: {N}. Argument must be a positive integer")
+    # destroys a NFFT plan structure.
 
-    # Convert N to a vector for passing to C
-    Nv = np.array(N, dtype=np.int32)
+    # # Input
+    # * `P` - a NFFT plan structure.
 
-    # Default oversampling
-    n = tuple((2 ** (np.ceil(np.log(Nv) / np.log(2)) + 1)).astype(np.int32))
+    # # See also
+    # [`NFFT{D}`](@ref), [`nfft_init`](@ref)
+    # """
 
-    # Default NFFT flags
-    D = len(N)
-    if D > 1:
-        f1 = f1_default
-    else:
-        f1 = f1_default_1d
+    def nfft_finalize_plan(self):
+        nfftlib.jnfft_finalize.argtypes = (
+            ctypes.POINTER(nfft_plan),   # P
+        )
 
-    return NFFT(N, M, n, 8, f1, f2_default)
+        if not self.init_done:
+            raise ValueError("NFFT not initialized.")
 
-def create_NFFT_with_defaults(N, M, n, m=int(default_window_cut_off), f1=None, f2=f2_default):
-    D = len(N)
+        if not self.finalized:
+            self.finalized = True
+            nfftlib.jnfft_finalize(self.plan)
 
-    if any(x <= 0 for x in N):
-        raise ValueError(f"Invalid N: {N}. Argument must be a positive integer")
+    def finalize_plan(self):
+        return self.nfft_finalize_plan()
 
-    if any(x <= 0 for x in n):
-        raise ValueError(f"Invalid n: {n}. Argument must be a positive integer")
+    # # allocate plan memory and init with D,N,M,n,m,f1,f2
+    # """
+    #     nfft_init(P)
 
-    if f1 is None:
-        f1 = f1_default if D > 1 else f1_default_1d
+    # intialises the NFFT plan in C. This function does not have to be called by the user.
 
-    # Additional flags
-    f1 |= (MALLOC_X | MALLOC_F_HAT | MALLOC_F | FFTW_INIT)
+    # # Input
+    # * `P` - a NFFT plan structure.
 
-    return NFFT(N, M, n, m, f1, f2)
+    # # See also
+    # [`NFFT{D}`](@ref), [`nfft_finalize_plan`](@ref)
 
-# # finalizer
-# """
-#     nfft_finalize_plan(P)
+    def nfft_init(self):
+        # Convert N and n to numpy arrays for passing them to C
+        Nv = np.array(self.N, dtype=np.int32)
+        n = np.array(self.n, dtype=np.int32)
 
-# destroys a NFFT plan structure.
+        # Call init for memory allocation
+        nfftlib.jnfft_alloc.restype = ctypes.POINTER(nfft_plan)
+        ptr = nfftlib.jnfft_alloc()
 
-# # Input
-# * `P` - a NFFT plan structure.
+        # Set the pointer
+        self.plan = ctypes.cast(ptr, ctypes.POINTER(nfft_plan))
 
-# # See also
-# [`NFFT{D}`](@ref), [`nfft_init`](@ref)
-# """
+        nfftlib.jnfft_init.argtypes = (
+            ctypes.POINTER(nfft_plan),   # P
+            ctypes.c_int,               # D
+            ctypes.POINTER(ctypes.c_int), # N
+            ctypes.c_int,               # M
+            ctypes.POINTER(ctypes.c_int), # n
+            ctypes.c_int,               # m
+            ctypes.c_uint,              # f1
+            ctypes.c_uint               # f2
+        )
 
-def nfft_finalize_plan(P):
-    nfftlib.jnfft_finalize.argtypes = (
-        ctypes.POINTER(nfft_plan),   # P
-    )
+        # Initialize values
+        nfftlib.jnfft_init(
+            self.plan,
+            ctypes.c_int(self.D),
+            ctypes.cast(Nv.ctypes.data, ctypes.POINTER(ctypes.c_int)),
+            ctypes.c_int(self.M),
+            ctypes.cast(n.ctypes.data, ctypes.POINTER(ctypes.c_int)),
+            ctypes.c_int(self.m),
+            ctypes.c_uint(self.f1),
+            ctypes.c_uint(self.f2)
+        )
+        self.init_done = True
 
-    if not P.init_done:
-        raise ValueError("NFFT not initialized.")
+        atexit.register(self.nfft_finalize_plan())
 
-    if not P.finalized:
-        P.finalized = True
-        nfftlib.jnfft_finalize(P.plan)
+    def init(self):
+        return self.nfft_init()
 
-def finalize_plan(P):
-    return nfft_finalize_plan(P)
+    # Overwrite dot notation for plan struct in order to use C memory
+    def setproperty(self, v, val):
+        # Init plan if not done [usually with setting nodes]
+        if not self.init_done:
+            self.nfft_init
 
-# # allocate plan memory and init with D,N,M,n,m,f1,f2
-# """
-#     nfft_init(P)
+        # Prevent bad stuff from happening
+        if self.finalized:
+            raise ValueError("NFFT already finalized")
 
-# intialises the NFFT plan in C. This function does not have to be called by the user.
+        # Setting nodes, verification of correct size dxM
+        if v == 'x':
+            if self.D == 1:
+                if not isinstance(val, np.ndarray) or val.dtype != np.float64:
+                    raise ValueError("x has to be a Float64 vector")
+                if val.shape[0] != self.M:
+                    raise ValueError("x has to be a Float64 vector of length M")
+            else:
+                if not isinstance(val, np.ndarray) or val.dtype != np.float64:
+                    raise ValueError("x has to be a Float64 matrix")
+                if val.shape[0] != self.D or val.shape[1] != self.M:
+                    raise ValueError("x has to be a Float64 matrix of size dxM")
+            
+            ptr = nfftlib.jnfft_set_x(self.plan, val.ctypes.data_as(ctypes.POINTER(ctypes.c_double)))
+            self.x = ptr
 
-# # Input
-# * `P` - a NFFT plan structure.
+        elif v == 'f':
+            if not isinstance(val, np.ndarray) or not np.issubdtype(val.dtype, np.number):
+                raise ValueError("f has to be a vector of numbers")
+            if val.shape[0] != self.M:
+                raise ValueError("f has to be a ComplexFloat64 vector of size M")
+            
+            f_complex = val.astype(np.complex128)
+            ptr = nfftlib.jnfft_set_f(self.plan, f_complex.ctypes.data_as(ctypes.POINTER(np.complex128)))
+            self.f = ptr
+            # Setting Fourier coefficients
 
-# # See also
-# [`NFFT{D}`](@ref), [`nfft_finalize_plan`](@ref)
+        elif v == 'fhat':
+            if not isinstance(val, np.ndarray) or not np.issubdtype(val.dtype, np.number):
+                raise ValueError("fhat has to be a vector of numbers")
+            l = np.prod(self.N)
+            if val.shape[0] != l:
+                raise ValueError("fhat has to be a ComplexFloat64 vector of size prod(N)")
+            
+            fhat_complex = val.astype(np.complex128)
+            ptr = nfftlib.jnfft_set_fhat(self.plan, fhat_complex.ctypes.data_as(ctypes.POINTER(np.complex128)))
+            self.fhat = ptr
 
-def nfft_init(P):
-    # Convert N and n to numpy arrays for passing them to C
-    Nv = np.array(P.N, dtype=np.int32)
-    n = np.array(P.n, dtype=np.int32)
+        elif v in ['plan', 'num_threads', 'init_done', 'N', 'M', 'n', 'm', 'f1', 'f2']:
+            warnings.warn(f"You can't modify {v}, please create an additional plan.")
 
-    # Call init for memory allocation
-    nfftlib.jnfft_alloc.restype = ctypes.POINTER(nfft_plan)
-    ptr = nfftlib.jnfft_alloc()
+        match v:
+            case 'plan':
+                warnings.warn("You can't modify the C pointer to the NFFT plan.")
+            case 'num_threads':
+                warnings.warn("You can't currently modify the number of threads.")
+            case 'init_done':
+                warnings.warn("You can't modify this flag.")
+            case 'N':
+                warnings.warn("You can't modify the bandwidth, please create an additional plan.")
+            case 'M':
+                warnings.warn("You can't modify the number of nodes, please create an additional plan.")
+            case 'n':
+                warnings.warn("You can't modify the oversampling parameter, please create an additional plan.")
+            case 'm':
+                warnings.warn("You can't modify the window size, please create an additional plan.")
+            case 'f1':
+                warnings.warn("You can't modify the NFFT flags, please create an additional plan.")
+            case 'f2':
+                warnings.warn("You can't modify the FFTW flags, please create an additional plan.")
+            case _:
+                setattr(self, v, val)
 
-    # Set the pointer
-    P.plan = ctypes.cast(ptr, ctypes.POINTER(nfft_plan))
-
-    nfftlib.jnfft_init.argtypes = (
-        ctypes.POINTER(nfft_plan),   # P
-        ctypes.c_int,               # D
-        ctypes.POINTER(ctypes.c_int), # N
-        ctypes.c_int,               # M
-        ctypes.POINTER(ctypes.c_int), # n
-        ctypes.c_int,               # m
-        ctypes.c_uint,              # f1
-        ctypes.c_uint               # f2
-    )
-
-    # Initialize values
-    nfftlib.jnfft_init(
-        P.plan,
-        ctypes.c_int(P.D),
-        ctypes.cast(Nv.ctypes.data, ctypes.POINTER(ctypes.c_int)),
-        ctypes.c_int(P.M),
-        ctypes.cast(n.ctypes.data, ctypes.POINTER(ctypes.c_int)),
-        ctypes.c_int(P.m),
-        ctypes.c_uint(P.f1),
-        ctypes.c_uint(P.f2)
-    )
-    P.init_done = True
-
-    atexit.register(nfft_finalize_plan, P)
-
-def init(P):
-    return nfft_init(P)
-
-# Overwrite dot notation for plan struct in order to use C memory
-def setproperty(P, v, val):
-    # Init plan if not done [usually with setting nodes]
-    if not P.init_done:
-        nfft_init(P)
-
-    # Prevent bad stuff from happening
-    if P.finalized:
-        raise ValueError("NFFT already finalized")
-
-    # Setting nodes, verification of correct size dxM
-    if v == 'x':
-        if P.D == 1:
-            if not isinstance(val, np.ndarray) or val.dtype != np.float64:
-                raise ValueError("x has to be a Float64 vector")
-            if val.shape[0] != P.M:
-                raise ValueError("x has to be a Float64 vector of length M")
+    def getproperty(self, v):
+        if v == 'x':
+            if self.x is None:
+                raise AttributeError("x is not set.")
+            ptr = self.x
+            if self.D == 1:
+                return np.ctypeslib.as_array(ptr, shape=(self.M,)) # Get nodes from C memory and convert to Python type
+            else:
+                return np.ctypeslib.as_array(ptr, shape=(self.D, self.M)) # Get nodes from C memory and convert to Python type
+        
+        elif v == 'num_threads':
+            return nfftlib.nfft_get_num_threads()
+        
+        elif v == 'f':
+            if self.f is None:
+                raise AttributeError("f is not set.")
+            ptr = self.f
+            return np.ctypeslib.as_array(ptr, shape=(self.M,)) # Get function values from C memory and convert to Python type
+        
+        elif v == 'fhat':
+            if self.fhat is None:
+                raise AttributeError("fhat is not set.")
+            ptr = self.fhat
+            return np.ctypeslib.as_array(ptr, shape=(np.prod(self.N),)) # Get function values from C memory and convert to Python type
+        
         else:
-            if not isinstance(val, np.ndarray) or val.dtype != np.float64:
-                raise ValueError("x has to be a Float64 matrix")
-            if val.shape[0] != P.D or val.shape[1] != P.M:
-                raise ValueError("x has to be a Float64 matrix of size dxM")
+            return self.__dict__[v]
+
+    # # nfft trafo direct [call with NFFT.trafo_direct outside module]
+    # """
+    #     nfft_trafo_direct(P)
+
+    # computes the NDFT via naive matrix-vector multiplication for provided nodes ``\pmb{x}_j, j =1,2,\dots,M,`` in `P.X` and coefficients ``\hat{f}_{\pmb{k}} \in \mathbb{C}, \pmb{k} \in I_{\pmb{N}}^D,`` in `P.fhat`.
+
+    # # Input
+    # * `P` - a NFFT plan structure.
+
+    # # See also
+    # [`NFFT{D}`](@ref), [`nfft_trafo`](@ref)
+    # """
+
+    def nfft_trafo_direct(self):
+        # Prevent bad stuff from happening
+        if self.finalized:
+            raise RuntimeError("NFFT already finalized")
+
+        if self.fhat is None:
+            raise ValueError("fhat has not been set.")
+
+        if self.x is None:
+            raise ValueError("x has not been set.")
+
+        ptr = nfftlib.jnfft_trafo_direct(self.plan)
+        self.f = ptr
+
+    def trafo_direct(self):
+        return self.nfft_trafo_direct()
+
+    # # adjoint trafo direct [call with NFFT.adjoint_direct outside module]
+    # """
+    #     nfft_adjoint_direct(P)
+
+    # computes the adjoint NDFT via naive matrix-vector multiplication for provided nodes ``\pmb{x}_j, j =1,2,\dots,M,`` in `P.X` and coefficients ``f_j \in \mathbb{C}, j =1,2,\dots,M,`` in `P.f`.
+
+    # # Input
+    # * `P` - a NFFT plan structure.
+
+    # # See also
+    # [`NFFT{D}`](@ref), [`nfft_adjoint`](@ref)
+    # """
+
+    def nfft_adjoint_direct(self):
+        # Prevent bad stuff from happening
+        if self.finalized:
+            raise RuntimeError("NFFT already finalized")
+
+        if not hasattr(self, 'f'):
+            raise ValueError("f has not been set.")
+
+        if not hasattr(self, 'x'):
+            raise ValueError("x has not been set.")
+
+        ptr = nfftlib.jnfft_adjoint_direct(self.plan)
+        self.fhat = ptr
+
+    def adjoint_direct(self):
+        return self.nfft_adjoint_direct()
+
+    # # nfft trafo [call with NFFT.trafo outside module]
+    # """
+    #     nfft_trafo(P)
+
+    # computes the NDFT via the fast NFFT algorithm for provided nodes ``\pmb{x}_j, j =1,2,\dots,M,`` in `P.X` and coefficients ``\hat{f}_{\pmb{k}} \in \mathbb{C}, \pmb{k} \in I_{\pmb{N}}^D,`` in `P.fhat`.
+
+    # # Input
+    # * `P` - a NFFT plan structure.
+
+    # # See also
+    # [`NFFT{D}`](@ref), [`nfft_trafo_direct`](@ref)
+    # """
+
+    def nfft_trafo(self):
+        nfftlib.jnfft_trafo.argtypes = [ctypes.POINTER(nfft_plan)]
+        nfftlib.jnfft_trafo.restype = np.ctypeslib.ndpointer(np.complex128, shape=(self.M,), flags='C')
+        # Prevent bad stuff from happening
+        if self.finalized:
+            raise RuntimeError("NFFT already finalized")
+
+        if not hasattr(self, 'fhat'):
+            raise ValueError("fhat has not been set.")
+
+        if not hasattr(self, 'x'):
+            raise ValueError("x has not been set.")
         
-        ptr = nfftlib.jnfft_set_x(P.plan, val.ctypes.data_as(ctypes.POINTER(ctypes.c_double)))
-        P.x = ptr
-
-    elif v == 'f':
-        if not isinstance(val, np.ndarray) or not np.issubdtype(val.dtype, np.number):
-            raise ValueError("f has to be a vector of numbers")
-        if val.shape[0] != P.M:
-            raise ValueError("f has to be a ComplexFloat64 vector of size M")
+        # attributes = [
+        #     'N', 'M', 'n', 'm', 'D', 'f1', 'f2',
+        #     'init_done', 'finalized', 'x', 'f', 'fhat', 'plan'
+        # ]
         
-        f_complex = val.astype(np.complex128)
-        ptr = nfftlib.jnfft_set_f(P.plan, f_complex.ctypes.data_as(ctypes.POINTER(complex_double)))
-        P.f = ptr
-        # Setting Fourier coefficients
+        # for attr in attributes:
+        #     value = getattr(self, attr)
+        #     print(f"{attr} (type: {type(value)}): {value}")
 
-    elif v == 'fhat':
-        if not isinstance(val, np.ndarray) or not np.issubdtype(val.dtype, np.number):
-            raise ValueError("fhat has to be a vector of numbers")
-        l = np.prod(P.N)
-        if val.shape[0] != l:
-            raise ValueError("fhat has to be a ComplexFloat64 vector of size prod(N)")
-        
-        fhat_complex = val.astype(np.complex128)
-        ptr = nfftlib.jnfft_set_fhat(P.plan, fhat_complex.ctypes.data_as(ctypes.POINTER(complex_double)))
-        P.fhat = ptr
+        ptr = nfftlib.jnfft_trafo(self.plan)
+        print("PTR=",ptr)
 
-    elif v in ['plan', 'num_threads', 'init_done', 'N', 'M', 'n', 'm', 'f1', 'f2']:
-        warnings.warn(f"You can't modify {v}, please create an additional plan.")
+        self.f = ptr
 
-    match v:
-        case 'plan':
-            warnings.warn("You can't modify the C pointer to the NFFT plan.")
-        case 'num_threads':
-            warnings.warn("You can't currently modify the number of threads.")
-        case 'init_done':
-            warnings.warn("You can't modify this flag.")
-        case 'N':
-            warnings.warn("You can't modify the bandwidth, please create an additional plan.")
-        case 'M':
-            warnings.warn("You can't modify the number of nodes, please create an additional plan.")
-        case 'n':
-            warnings.warn("You can't modify the oversampling parameter, please create an additional plan.")
-        case 'm':
-            warnings.warn("You can't modify the window size, please create an additional plan.")
-        case 'f1':
-            warnings.warn("You can't modify the NFFT flags, please create an additional plan.")
-        case 'f2':
-            warnings.warn("You can't modify the FFTW flags, please create an additional plan.")
-        case _:
-            setattr(P, v, val)
+    def trafo(self):
+        return self.nfft_trafo()
 
-def getproperty(P, v):
-    if v == 'x':
-        if P.x is None:
-            raise AttributeError("x is not set.")
-        ptr = P.x
-        if P.D == 1:
-            return np.ctypeslib.as_array(ptr, shape=(P.M,)) # Get nodes from C memory and convert to Python type
-        else:
-            return np.ctypeslib.as_array(ptr, shape=(P.D, P.M)) # Get nodes from C memory and convert to Python type
-    
-    elif v == 'num_threads':
-        return nfftlib.nfft_get_num_threads()
-    
-    elif v == 'f':
-        if P.f is None:
-            raise AttributeError("f is not set.")
-        ptr = P.f
-        return np.ctypeslib.as_array(ptr, shape=(P.M,)) # Get function values from C memory and convert to Python type
-    
-    elif v == 'fhat':
-        if P.fhat is None:
-            raise AttributeError("fhat is not set.")
-        ptr = P.fhat
-        return np.ctypeslib.as_array(ptr, shape=(np.prod(P.N),)) # Get function values from C memory and convert to Python type
-    
-    else:
-        return P.__dict__[v]
+    # # adjoint trafo [call with NFFT.adjoint outside module]
+    # """
+    #     nfft_adjoint(P)
 
-# # nfft trafo direct [call with NFFT.trafo_direct outside module]
-# """
-#     nfft_trafo_direct(P)
+    # computes the adjoint NDFT via the fast adjoint NFFT algorithm for provided nodes ``\pmb{x}_j, j =1,2,\dots,M,`` in `P.X` and coefficients ``f_j \in \mathbb{C}, j =1,2,\dots,M,`` in `P.f`.
 
-# computes the NDFT via naive matrix-vector multiplication for provided nodes ``\pmb{x}_j, j =1,2,\dots,M,`` in `P.X` and coefficients ``\hat{f}_{\pmb{k}} \in \mathbb{C}, \pmb{k} \in I_{\pmb{N}}^D,`` in `P.fhat`.
+    # # Input
+    # * `P` - a NFFT plan structure.
 
-# # Input
-# * `P` - a NFFT plan structure.
+    # # See also
+    # [`NFFT{D}`](@ref), [`nfft_adjoint_direct`](@ref)
+    # """
 
-# # See also
-# [`NFFT{D}`](@ref), [`nfft_trafo`](@ref)
-# """
+    def nfft_adjoint(self):
+        # Prevent bad stuff from happening
+        if self.finalized:
+            raise RuntimeError("NFFT already finalized")
 
-def nfft_trafo_direct(P):
-    # Prevent bad stuff from happening
-    if P.finalized:
-        raise RuntimeError("NFFT already finalized")
+        if not hasattr(self, 'f'):
+            raise ValueError("f has not been set.")
 
-    if P.fhat is None:
-        raise ValueError("fhat has not been set.")
+        if not hasattr(self, 'x'):
+            raise ValueError("x has not been set.")
 
-    if P.x is None:
-        raise ValueError("x has not been set.")
+        ptr = nfftlib.jnfft_adjoint(self.plan)
+        self.fhat = ptr
 
-    ptr = nfftlib.jnfft_trafo_direct(P.plan)
-    P.f = ptr
-
-def trafo_direct(P):
-    return nfft_trafo_direct(P)
-
-# # adjoint trafo direct [call with NFFT.adjoint_direct outside module]
-# """
-#     nfft_adjoint_direct(P)
-
-# computes the adjoint NDFT via naive matrix-vector multiplication for provided nodes ``\pmb{x}_j, j =1,2,\dots,M,`` in `P.X` and coefficients ``f_j \in \mathbb{C}, j =1,2,\dots,M,`` in `P.f`.
-
-# # Input
-# * `P` - a NFFT plan structure.
-
-# # See also
-# [`NFFT{D}`](@ref), [`nfft_adjoint`](@ref)
-# """
-
-def nfft_adjoint_direct(P):
-    # Prevent bad stuff from happening
-    if P.finalized:
-        raise RuntimeError("NFFT already finalized")
-
-    if not hasattr(P, 'f'):
-        raise ValueError("f has not been set.")
-
-    if not hasattr(P, 'x'):
-        raise ValueError("x has not been set.")
-
-    ptr = nfftlib.jnfft_adjoint_direct(P.plan)
-    P.fhat = ptr
-
-def adjoint_direct(P):
-    return nfft_adjoint_direct(P)
-
-# # nfft trafo [call with NFFT.trafo outside module]
-# """
-#     nfft_trafo(P)
-
-# computes the NDFT via the fast NFFT algorithm for provided nodes ``\pmb{x}_j, j =1,2,\dots,M,`` in `P.X` and coefficients ``\hat{f}_{\pmb{k}} \in \mathbb{C}, \pmb{k} \in I_{\pmb{N}}^D,`` in `P.fhat`.
-
-# # Input
-# * `P` - a NFFT plan structure.
-
-# # See also
-# [`NFFT{D}`](@ref), [`nfft_trafo_direct`](@ref)
-# """
-
-def nfft_trafo(P):
-    # Prevent bad stuff from happening
-    if P.finalized:
-        raise RuntimeError("NFFT already finalized")
-
-    if not hasattr(P, 'fhat'):
-        raise ValueError("fhat has not been set.")
-
-    if not hasattr(P, 'x'):
-        raise ValueError("x has not been set.")
-
-    ptr = nfftlib.jnfft_trafo(P.plan)
-    P.f = ptr
-
-def trafo(P):
-    return nfft_trafo(P)
-
-# # adjoint trafo [call with NFFT.adjoint outside module]
-# """
-#     nfft_adjoint(P)
-
-# computes the adjoint NDFT via the fast adjoint NFFT algorithm for provided nodes ``\pmb{x}_j, j =1,2,\dots,M,`` in `P.X` and coefficients ``f_j \in \mathbb{C}, j =1,2,\dots,M,`` in `P.f`.
-
-# # Input
-# * `P` - a NFFT plan structure.
-
-# # See also
-# [`NFFT{D}`](@ref), [`nfft_adjoint_direct`](@ref)
-# """
-
-def nfft_adjoint(P):
-    # Prevent bad stuff from happening
-    if P.finalized:
-        raise RuntimeError("NFFT already finalized")
-
-    if not hasattr(P, 'f'):
-        raise ValueError("f has not been set.")
-
-    if not hasattr(P, 'x'):
-        raise ValueError("x has not been set.")
-
-    ptr = nfftlib.jnfft_adjoint(P.plan)
-    P.fhat = ptr
-
-def adjoint(P):
-    return nfft_adjoint(P)
+    def adjoint(self):
+        return self.nfft_adjoint()

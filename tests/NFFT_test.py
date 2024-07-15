@@ -4,58 +4,38 @@ import numpy as np
 from src.pynfft3.flags import *
 from src.pynfft3.NFFT import *
 
-# # Set inital values
-# n = np.array([6])
-# N = np.array([2]) 
-# M = 2
-
 # import numpy as np
-N = np.array([16, 8, 4], dtype='int32') # pretty important, should add a check for that dtype, lost 3h here
+# N = np.array([16], dtype='int32') # 1d
+N = np.array([16, 8], dtype='int32') # 2d
+# N = np.array([16, 8, 4], dtype='int32') # 3d
 M = 100
 d = len(N)
 Ns = np.prod(N)
 
-X = np.random.rand(M,d)
-fhat = np.random.rand(Ns) +  1.0j * np.random.rand(Ns)
-f = np.random.rand(M) +  1.0j * np.random.rand(M)
+X = np.array([[np.sin(i + j) for j in range(d)] for i in range(M)])
+fhat = np.array([np.cos(k) + 1.0j * np.sin(k) for k in range(Ns)])
+f = np.array([np.sin(m) + 1.0j * np.cos(m) for m in range(M)])
 
-# Test constructor
-plan = NFFT(N, M)
-#plan = create_NFFT_with_defaults(N, M, n)
-print(plan)
+# test init and setting
+plan = NFFT(N,M)
+plan.X = X
+plan.f = f   # this gets overwritten
+plan.fhat = fhat
 
-print(plan.f1)
-print(plan.f2)
+# test traffo
+plan.trafo() # value is in plan.f
 
-# Test init
-#init(plan)
-NFFT.nfft_init(plan)
+# compare with directly computed
+# I = [[k] for  k in range(int(-N[0]/2),int(N[0]/2))] # 1d
+I = [[k, i] for  k in range(int(-N[0]/2),int(N[0]/2)) for i in range(int(-N[1]/2),int(N[1]/2))] # 2d
+# I = [[k, i, j] for  k in range(int(-N[0]/2),int(N[0]/2)) for i in range(int(-N[1]/2),int(N[1]/2)) for j in range(int(-N[2]/2),int(N[2]/2))] # 3d
 
-# Test setting x, fhat, and f
-x_val = np.array([3.0, 4.0], dtype=np.float64)
-f_val = np.array([1+1j, 2+2j], dtype=np.complex128)
-fhat_val = np.array([6+7j, 2+3j], dtype=np.complex128)
-NFFT.setproperty(plan, "x", x_val)
-NFFT.setproperty(plan, "fhat", fhat_val)
-NFFT.setproperty(plan, "f", f_val)
+F = np.array([[np.exp(-2 * np.pi * 1j * np.dot(X.T[:,j],I[l])) for l in range (0,Ns) ] for j in range(0,M)])
 
-# Test retrieving x, fhat, and f
-print("P.x:",NFFT.getproperty(plan, "x"))
-print("P.fhat:",NFFT.getproperty(plan, "fhat"))
-print("P.f:",NFFT.getproperty(plan, "f"))
+f1 = F @ fhat
 
-NFFT.nfft_trafo_direct(plan)
-#trafo_direct(plan)
-print("P.f:",NFFT.getproperty(plan, "f"))
+norm_euclidean = np.linalg.norm(f1 - plan.f)
+norm_infinity = np.linalg.norm(f1 - plan.f, np.inf)
 
-NFFT.nfft_adjoint_direct(plan)
-#adjoint_direct(plan)
-print("P.fhat:",NFFT.getproperty(plan, "fhat"))
-
-NFFT.nfft_trafo(plan)
-#trafo(plan)
-print("P.f:",NFFT.getproperty(plan, "f"))
-
-NFFT.nfft_adjoint(plan)
-#adjoint(plan)
-print("P.fhat:",NFFT.getproperty(plan, "fhat"))
+print("Euclidean norm:", norm_euclidean)
+print("Infinity norm:", norm_infinity)

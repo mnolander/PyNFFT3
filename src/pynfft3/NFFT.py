@@ -54,6 +54,7 @@ from . import nfft_plan
 #     NFFT( N::NTuple{D,Int32}, M::Int32 ) where {D}
 # """
 
+# Set arugment and return types for functions
 nfftlib.jnfft_init.argtypes = [ctypes.POINTER(nfft_plan), 
                                ctypes.c_int32, 
                                ctypes.POINTER(ctypes.c_int32), 
@@ -64,16 +65,16 @@ nfftlib.jnfft_init.argtypes = [ctypes.POINTER(nfft_plan),
                                ctypes.c_uint32]
 
 nfftlib.jnfft_alloc.restype = ctypes.POINTER(nfft_plan)
-
-# finalize
 nfftlib.jnfft_finalize.argtypes = [ctypes.POINTER(nfft_plan)]
+
 nfftlib.jnfft_set_x.argtypes = [ctypes.POINTER(nfft_plan), np.ctypeslib.ndpointer(np.float64, flags='C')]
 nfftlib.jnfft_set_f.argtypes = [ctypes.POINTER(nfft_plan), np.ctypeslib.ndpointer(np.complex128, ndim=1, flags='C')] 
-nfftlib.jnfft_set_f.restype = np.ctypeslib.ndpointer(np.complex128, ndim=1, flags='C') # unfortunately this does not work, need to add line below later
-
-# exactly the same for set fhat
 nfftlib.jnfft_set_fhat.argtypes = [ctypes.POINTER(nfft_plan), np.ctypeslib.ndpointer(np.complex128, ndim=1, flags='C')] 
-nfftlib.jnfft_set_fhat.restype = np.ctypeslib.ndpointer(np.complex128, ndim=1, flags='C') # unfortunately this does not work, need to add line below later
+
+nfftlib.jnfft_trafo.argtypes = [ctypes.POINTER(nfft_plan)]
+nfftlib.jnfft_adjoint.argtypes = [ctypes.POINTER(nfft_plan)]
+nfftlib.jnfft_trafo_direct.argtypes = [ctypes.POINTER(nfft_plan)]
+nfftlib.jnfft_adjoint_direct.argtypes = [ctypes.POINTER(nfft_plan)]
 
 class NFFT:
     def __init__(self, N, M, n=None, m=default_window_cut_off, f1=None, f2=f2_default):
@@ -169,7 +170,6 @@ class NFFT:
         n = np.array(self.n, dtype=np.int32)
 
         # Call init for memory allocation
-        nfftlib.jnfft_alloc.restype = ctypes.POINTER(nfft_plan)
         ptr = nfftlib.jnfft_alloc()
 
         # Set the pointer
@@ -213,7 +213,6 @@ class NFFT:
         if value is not None:
             if not (isinstance(value,np.ndarray) and value.dtype == np.float64 and value.flags['C']):
                 raise RuntimeError("X has to be C-continuous, numpy float64 array")
-            # @TODO: check dimensions and values
             if self.D == 1:
                 nfftlib.jnfft_set_x.restype = np.ctypeslib.ndpointer(dtype=np.float64, ndim=2, shape=self.M, flags='C')
             else:
@@ -229,7 +228,6 @@ class NFFT:
         if value is not None:
             if not (isinstance(value,np.ndarray) and value.dtype == np.complex128 and value.flags['C']):
                 raise RuntimeError("f has to be C-continuous, numpy complex128 array")
-            # @TODO: check dimensions and values  
             nfftlib.jnfft_set_f.restype = np.ctypeslib.ndpointer(np.complex128, ndim=1, shape=self.M, flags='C') 
             self._f = nfftlib.jnfft_set_f(self.plan, value)
 
@@ -241,8 +239,7 @@ class NFFT:
     def fhat(self, value):
         if value is not None:
             if not (isinstance(value,np.ndarray) and value.dtype == np.complex128 and value.flags['C']):
-                raise RuntimeError("fhat has to be C-continuous, numpy complex128 array")
-            # @TODO: check dimensions and values  
+                raise RuntimeError("fhat has to be C-continuous, numpy complex128 array") 
             Ns = np.prod(self.N)
             nfftlib.jnfft_set_fhat.restype = np.ctypeslib.ndpointer(np.complex128, ndim=1, shape=Ns, flags='C') 
             self._fhat = nfftlib.jnfft_set_fhat(self.plan, value)
@@ -352,6 +349,9 @@ class NFFT:
     # """
 
     def nfft_adjoint(self):
+        Ns = np.prod(self.N)
+        nfftlib.jnfft_set_fhat.restype = np.ctypeslib.ndpointer(np.complex128, ndim=1, shape=Ns, flags='C') 
+        nfftlib.jnfft_adjoint.restype = np.ctypeslib.ndpointer(np.complex128, shape=Ns, flags='C')
         # Prevent bad stuff from happening
         if self.finalized:
             raise RuntimeError("NFFT already finalized")

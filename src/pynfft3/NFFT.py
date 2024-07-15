@@ -68,7 +68,6 @@ nfftlib.jnfft_alloc.restype = ctypes.POINTER(nfft_plan)
 # finalize
 nfftlib.jnfft_finalize.argtypes = [ctypes.POINTER(nfft_plan)]
 nfftlib.jnfft_set_x.argtypes = [ctypes.POINTER(nfft_plan), np.ctypeslib.ndpointer(np.float64, ndim=2, flags='C')]
-nfftlib.jnfft_set_x.restype = np.ctypeslib.ndpointer(dtype=np.float64, ndim=2, flags='C_CONTIGUOUS')
 nfftlib.jnfft_set_f.argtypes = [ctypes.POINTER(nfft_plan), np.ctypeslib.ndpointer(np.complex128, ndim=1, flags='C')] 
 nfftlib.jnfft_set_f.restype = np.ctypeslib.ndpointer(np.complex128, ndim=1, flags='C') # unfortunately this does not work, need to add line below later
 
@@ -214,8 +213,11 @@ class NFFT:
         if value is not None:
             if not (isinstance(value,np.ndarray) and value.dtype == np.float64 and value.flags['C']):
                 raise RuntimeError("X has to be C-continuous, numpy float64 array")
-            # @TODO: check dimensions and values  
-            nfftlib.jnfft_set_x.restype = np.ctypeslib.ndpointer(dtype=np.float64, ndim=2, shape=(self.M,self.D), flags='C')
+            # @TODO: check dimensions and values
+            if self.D == 1:
+                nfftlib.jnfft_set_x.restype = np.ctypeslib.ndpointer(dtype=np.float64, ndim=2, shape=self.M, flags='C')
+            else:
+                nfftlib.jnfft_set_x.restype = np.ctypeslib.ndpointer(dtype=np.float64, ndim=2, shape=(self.M,self.D), flags='C')
             self._X = nfftlib.jnfft_set_x(self.plan, value)
     
     @property
@@ -228,7 +230,7 @@ class NFFT:
             if not (isinstance(value,np.ndarray) and value.dtype == np.complex128 and value.flags['C']):
                 raise RuntimeError("f has to be C-continuous, numpy complex128 array")
             # @TODO: check dimensions and values  
-            nfftlib.jnfft_set_f.restype = np.ctypeslib.ndpointer(np.complex128, ndim=1, shape=(self.M,), flags='C') 
+            nfftlib.jnfft_set_f.restype = np.ctypeslib.ndpointer(np.complex128, ndim=1, shape=self.M, flags='C') 
             self._f = nfftlib.jnfft_set_f(self.plan, value)
 
     @property
@@ -242,7 +244,7 @@ class NFFT:
                 raise RuntimeError("fhat has to be C-continuous, numpy complex128 array")
             # @TODO: check dimensions and values  
             Ns = np.prod(self.N)
-            nfftlib.jnfft_set_fhat.restype = np.ctypeslib.ndpointer(np.complex128, ndim=1, shape=(Ns,), flags='C') 
+            nfftlib.jnfft_set_fhat.restype = np.ctypeslib.ndpointer(np.complex128, ndim=1, shape=Ns, flags='C') 
             self._fhat = nfftlib.jnfft_set_fhat(self.plan, value)
 
     # # nfft trafo direct [call with NFFT.trafo_direct outside module]

@@ -5,8 +5,8 @@ from src.pynfft3.flags import *
 from src.pynfft3.NFFT import *
 
 # import numpy as np
-# N = np.array([16], dtype='int32') # 1d
-N = np.array([16, 8], dtype='int32') # 2d
+N = np.array([16], dtype='int32') # 1d
+# N = np.array([16, 8], dtype='int32') # 2d
 # N = np.array([16, 8, 4], dtype='int32') # 3d
 M = 100
 d = len(N)
@@ -26,8 +26,8 @@ plan.fhat = fhat
 plan.trafo() # value is in plan.f
 
 # compare with directly computed
-# I = [[k] for  k in range(int(-N[0]/2),int(N[0]/2))] # 1d
-I = [[k, i] for  k in range(int(-N[0]/2),int(N[0]/2)) for i in range(int(-N[1]/2),int(N[1]/2))] # 2d
+I = [[k] for  k in range(int(-N[0]/2),int(N[0]/2))] # 1d
+# I = [[k, i] for  k in range(int(-N[0]/2),int(N[0]/2)) for i in range(int(-N[1]/2),int(N[1]/2))] # 2d
 # I = [[k, i, j] for  k in range(int(-N[0]/2),int(N[0]/2)) for i in range(int(-N[1]/2),int(N[1]/2)) for j in range(int(-N[2]/2),int(N[2]/2))] # 3d
 
 F = np.array([[np.exp(-2 * np.pi * 1j * np.dot(X.T[:,j],I[l])) for l in range (0,Ns) ] for j in range(0,M)])

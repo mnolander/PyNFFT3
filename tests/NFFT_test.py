@@ -12,7 +12,7 @@ M = 100
 d = len(N)
 Ns = np.prod(N)
 
-X = np.array([[np.sin(i + j) for j in range(d)] for i in range(M)])
+X = np.array([[abs(np.sin(i + j)) for j in range(d)] for i in range(M)])
 fhat = np.array([np.cos(k) + 1.0j * np.sin(k) for k in range(Ns)])
 f = np.array([np.sin(m) + 1.0j * np.cos(m) for m in range(M)])
 

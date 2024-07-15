@@ -67,7 +67,7 @@ nfftlib.jnfft_alloc.restype = ctypes.POINTER(nfft_plan)
 
 # finalize
 nfftlib.jnfft_finalize.argtypes = [ctypes.POINTER(nfft_plan)]
-nfftlib.jnfft_set_x.argtypes = [ctypes.POINTER(nfft_plan), np.ctypeslib.ndpointer(np.float64, ndim=2, flags='C')]
+nfftlib.jnfft_set_x.argtypes = [ctypes.POINTER(nfft_plan), np.ctypeslib.ndpointer(np.float64, flags='C')]
 nfftlib.jnfft_set_f.argtypes = [ctypes.POINTER(nfft_plan), np.ctypeslib.ndpointer(np.complex128, ndim=1, flags='C')] 
 nfftlib.jnfft_set_f.restype = np.ctypeslib.ndpointer(np.complex128, ndim=1, flags='C') # unfortunately this does not work, need to add line below later
 
@@ -321,7 +321,7 @@ class NFFT:
     # """
 
     def nfft_trafo(self):
-        nfftlib.jnfft_trafo.restype = np.ctypeslib.ndpointer(np.complex128, shape=(self.M,), flags='C')
+        nfftlib.jnfft_trafo.restype = np.ctypeslib.ndpointer(np.complex128, shape=self.M, flags='C')
         # Prevent bad stuff from happening
         if self.finalized:
             raise RuntimeError("NFFT already finalized")

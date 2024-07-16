@@ -3,8 +3,10 @@ import numpy as np
 from numpy import ctypeslib
 import os
 
-# Create dummy class for NFFT plan
+# Create dummy classes for plans
 class nfft_plan(ctypes.Structure):
+    pass
+class nfst_plan(ctypes.Structure):
     pass
 
 # Determine the file extension for shared libraries based on the operating system

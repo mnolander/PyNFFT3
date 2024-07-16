@@ -175,17 +175,6 @@ class NFFT:
         # Set the pointer
         self.plan = ctypes.cast(ptr, ctypes.POINTER(nfft_plan))
 
-        nfftlib.jnfft_init.argtypes = (
-            ctypes.POINTER(nfft_plan),   # P
-            ctypes.c_int,               # D
-            ctypes.POINTER(ctypes.c_int), # N
-            ctypes.c_int,               # M
-            ctypes.POINTER(ctypes.c_int), # n
-            ctypes.c_int,               # m
-            ctypes.c_uint,              # f1
-            ctypes.c_uint               # f2
-        )
-
         # Initialize values
         nfftlib.jnfft_init(
             self.plan,

@@ -194,14 +194,14 @@ class NFFT:
         return self.nfft_init()
     
     @property
-    def X(self):
+    def x(self):
         return self._X
 
-    @X.setter 
-    def X(self, value):
+    @x.setter 
+    def x(self, value):
         if value is not None:
             if not (isinstance(value,np.ndarray) and value.dtype == np.float64 and value.flags['C']):
-                raise RuntimeError("X has to be C-continuous, numpy float64 array")
+                raise RuntimeError("x has to be C-continuous, numpy float64 array")
             if self.D == 1:
                 nfftlib.jnfft_set_x.restype = np.ctypeslib.ndpointer(dtype=np.float64, ndim=2, shape=self.M, flags='C')
             else:
@@ -237,7 +237,7 @@ class NFFT:
     # """
     #     nfft_trafo_direct(P)
 
-    # computes the NDFT via naive matrix-vector multiplication for provided nodes ``\pmb{x}_j, j =1,2,\dots,M,`` in `P.X` and coefficients ``\hat{f}_{\pmb{k}} \in \mathbb{C}, \pmb{k} \in I_{\pmb{N}}^D,`` in `P.fhat`.
+    # computes the NDFT via naive matrix-vector multiplication for provided nodes ``\pmb{x}_j, j =1,2,\dots,M,`` in `P.x` and coefficients ``\hat{f}_{\pmb{k}} \in \mathbb{C}, \pmb{k} \in I_{\pmb{N}}^D,`` in `P.fhat`.
 
     # # Input
     # * `P` - a NFFT plan structure.
@@ -267,7 +267,7 @@ class NFFT:
     # """
     #     nfft_adjoint_direct(P)
 
-    # computes the adjoint NDFT via naive matrix-vector multiplication for provided nodes ``\pmb{x}_j, j =1,2,\dots,M,`` in `P.X` and coefficients ``f_j \in \mathbb{C}, j =1,2,\dots,M,`` in `P.f`.
+    # computes the adjoint NDFT via naive matrix-vector multiplication for provided nodes ``\pmb{x}_j, j =1,2,\dots,M,`` in `P.x` and coefficients ``f_j \in \mathbb{C}, j =1,2,\dots,M,`` in `P.f`.
 
     # # Input
     # * `P` - a NFFT plan structure.
@@ -297,7 +297,7 @@ class NFFT:
     # """
     #     nfft_trafo(P)
 
-    # computes the NDFT via the fast NFFT algorithm for provided nodes ``\pmb{x}_j, j =1,2,\dots,M,`` in `P.X` and coefficients ``\hat{f}_{\pmb{k}} \in \mathbb{C}, \pmb{k} \in I_{\pmb{N}}^D,`` in `P.fhat`.
+    # computes the NDFT via the fast NFFT algorithm for provided nodes ``\pmb{x}_j, j =1,2,\dots,M,`` in `P.x` and coefficients ``\hat{f}_{\pmb{k}} \in \mathbb{C}, \pmb{k} \in I_{\pmb{N}}^D,`` in `P.fhat`.
 
     # # Input
     # * `P` - a NFFT plan structure.
@@ -328,7 +328,7 @@ class NFFT:
     # """
     #     nfft_adjoint(P)
 
-    # computes the adjoint NDFT via the fast adjoint NFFT algorithm for provided nodes ``\pmb{x}_j, j =1,2,\dots,M,`` in `P.X` and coefficients ``f_j \in \mathbb{C}, j =1,2,\dots,M,`` in `P.f`.
+    # computes the adjoint NDFT via the fast adjoint NFFT algorithm for provided nodes ``\pmb{x}_j, j =1,2,\dots,M,`` in `P.x` and coefficients ``f_j \in \mathbb{C}, j =1,2,\dots,M,`` in `P.f`.
 
     # # Input
     # * `P` - a NFFT plan structure.

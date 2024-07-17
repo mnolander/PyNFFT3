@@ -232,6 +232,10 @@ class NFST:
             nfstlib.jnfst_set_fhat.argtypes = [ctypes.POINTER(nfst_plan), np.ctypeslib.ndpointer(np.float64, ndim=1, flags='C')]
             nfstlib.jnfst_set_fhat.restype = np.ctypeslib.ndpointer(np.float64, ndim=1, shape=(Ns,), flags='C_CONTIGUOUS') 
             self._fhat = nfstlib.jnfst_set_fhat(self.plan, value)
+    
+    @property
+    def num_threads(self):
+        return nfstlib.nfft_get_num_threads()
 
     # """
     #     nfst_trafo_direct(P)

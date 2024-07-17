@@ -8,6 +8,8 @@ class nfft_plan(ctypes.Structure):
     pass
 class nfst_plan(ctypes.Structure):
     pass
+class nfct_plan(ctypes.Structure):
+    pass
 
 # Determine the file extension for shared libraries based on the operating system
 if os.name == 'nt':  # Windows

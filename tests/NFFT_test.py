@@ -22,7 +22,7 @@ plan.x = X
 plan.f = f # this gets overwritten
 plan.fhat = fhat
 
-# test traffo
+# test trafo
 plan.trafo() # value is in plan.f
 
 # test adjoint

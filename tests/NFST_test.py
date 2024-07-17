@@ -23,29 +23,37 @@ plan.f = f # this gets overwritten
 plan.fhat = fhat
 
 # test traffo
-# plan.trafo() # value is in plan.f
+plan.trafo() # value is in plan.f
 
-# test adjoint
-plan.adjoint()
+# test transpose
+# plan.adjoint()
 
-# compare with directly computed
-# I = [[k] for  k in range(1,N[0]-1)] # 1d
-# I = [[k, i] for  k in range(1,N[0]-1) for i in range(1,N[1]-1)] # 2d
-I = [[k, i, j] for  k in range(1,N[0]-1) for i in range(1,N[1]-1) for j in range(1,N[2]-1)] # 3d
+# compare with directly computed, using N[k]-1 but range is not inclusive
+if d == 1:
+    I = [[k] for k in range(1, N[0])]
+elif d == 2:
+    I = [[k, i] for k in range(1, N[0]) for i in range(1, N[1])]
+elif d == 3:
+    I = [[k, i, j] for k in range(1, N[0]) for i in range(1, N[1]) for j in range(1, N[2])]
 
-#F = np.array([[np.exp(-2 * np.pi * 1j * np.dot(X.T[:,j],I[l])) for l in range (0,Ns) ] for j in range(0,M)])
-F = np.array([[np.sin(2*np.pi*X[1,j]*I[l][1]) * np.sin(2*np.pi*X[2,j]*I[l][2]) * np.sin(2*np.pi*X[3,j]*I[l][3]) for l in range (0,Ns) ] for j in range(0,M)])
+def sine_product(x, i, d):
+    result = 1
+    for k in range(d):
+        result *= np.sin(2 * np.pi * x[k] * i[k])
+    return result
+
+F = np.array([[sine_product(X[j], I[l], d) for l in range(Ns)] for j in range(M)])
 F_mat = np.asmatrix(F)
 
-# # for testing trafo
-# f1 = F @ fhat
+# for testing trafo
+f1 = F @ fhat
+norm_euclidean = np.linalg.norm(f1 - plan.f)
+norm_infinity = np.linalg.norm(f1 - plan.f, np.inf)
+
+# # for testing transpose
+# f1 = F_mat.H @ f
 # norm_euclidean = np.linalg.norm(f1 - plan.fhat)
 # norm_infinity = np.linalg.norm(f1 - plan.fhat, np.inf)
-
-# for testing adjoint
-f1 = F_mat.H @ f
-norm_euclidean = np.linalg.norm(f1 - plan.fhat)
-norm_infinity = np.linalg.norm(f1 - plan.fhat, np.inf)
 
 print("Euclidean norm:", norm_euclidean)
 print("Infinity norm:", norm_infinity)

@@ -1,5 +1,3 @@
-#TODO: Test both trafo+transpose at same time
-
 import warnings
 import ctypes
 import numpy as np
@@ -19,16 +17,21 @@ fhat = np.array([np.cos(k) * np.sin(k) for k in range(Ns)], dtype=np.float64)
 f = np.array([np.sin(m) * np.cos(m) for m in range(M)])
 
 # test init and setting
-plan = NFCT(N,M)
-plan.x = X
-plan.f = f # this gets overwritten
-plan.fhat = fhat
+plan_traf = NFCT(N,M)
+plan_traf.x = X
+plan_traf.f = f # this gets overwritten
+plan_traf.fhat = fhat
+
+plan_adj = NFCT(N,M)
+plan_adj.x = X
+plan_adj.f = f # this gets overwritten
+plan_adj.fhat = fhat
 
 # test trafo
-# plan.trafo() # value is in plan.f
+plan_traf.trafo() # value is in plan.f
 
 # test transpose
-plan.adjoint()
+plan_adj.adjoint()
 
 # compare with directly computed, using N[k]-1 but range is not inclusive
 if d == 1:
@@ -47,15 +50,17 @@ def cosine_product(x, i, d):
 F = np.array([[cosine_product(X[j], I[l], d) for l in range(Ns)] for j in range(M)])
 F_mat = np.asmatrix(F)
 
-# # for testing trafo
-# f1 = F @ fhat
-# norm_euclidean = np.linalg.norm(f1 - plan.f)
-# norm_infinity = np.linalg.norm(f1 - plan.f, np.inf)
+## norm values should be ~e-12
+# for testing trafo
+f1 = F @ fhat
+norm_euclidean_traf = np.linalg.norm(f1 - plan_traf.f)
+norm_infinity_traf = np.linalg.norm(f1 - plan_traf.f, np.inf)
+print("Euclidean norm for trafo test:", norm_euclidean_traf)
+print("Infinity norm: for trafo test", norm_infinity_traf)
 
 # for testing transpose
 f1 = F_mat.H @ f
-norm_euclidean = np.linalg.norm(f1 - plan.fhat)
-norm_infinity = np.linalg.norm(f1 - plan.fhat, np.inf)
-
-print("Euclidean norm:", norm_euclidean)
-print("Infinity norm:", norm_infinity)
+norm_euclidean_adj = np.linalg.norm(f1 - plan_adj.fhat)
+norm_infinity_adj = np.linalg.norm(f1 - plan_adj.fhat, np.inf)
+print("Euclidean norm for transpose test:", norm_euclidean_adj)
+print("Infinity norm for transpose test:", norm_infinity_adj)

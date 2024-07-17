@@ -17,16 +17,21 @@ fhat = np.array([np.cos(k) + 1.0j * np.sin(k) for k in range(Ns)])
 f = np.array([np.sin(m) + 1.0j * np.cos(m) for m in range(M)])
 
 # test init and setting
-plan = NFFT(N,M)
-plan.x = X
-plan.f = f # this gets overwritten
-plan.fhat = fhat
+plan_traf = NFFT(N,M)
+plan_traf.x = X
+plan_traf.f = f # this gets overwritten
+plan_traf.fhat = fhat
+
+plan_adj = NFFT(N,M)
+plan_adj.x = X
+plan_adj.f = f # this gets overwritten
+plan_adj.fhat = fhat
 
 # test trafo
-plan.trafo() # value is in plan.f
+plan_traf.trafo() # value is in plan.f
 
-# test adjoint
-# plan.adjoint()
+# test transpose
+plan_adj.adjoint()
 
 # compare with directly computed
 if d == 1:
@@ -39,15 +44,17 @@ elif d == 3:
 F = np.array([[np.exp(-2 * np.pi * 1j * np.dot(X.T[:,j],I[l])) for l in range (0,Ns) ] for j in range(0,M)])
 F_mat = np.asmatrix(F)
 
+## norm values should be ~e-12
 # for testing trafo
 f1 = F @ fhat
-norm_euclidean = np.linalg.norm(f1 - plan.f)
-norm_infinity = np.linalg.norm(f1 - plan.f, np.inf)
+norm_euclidean_traf = np.linalg.norm(f1 - plan_traf.f)
+norm_infinity_traf = np.linalg.norm(f1 - plan_traf.f, np.inf)
+print("Euclidean norm for trafo test:", norm_euclidean_traf)
+print("Infinity norm: for trafo test", norm_infinity_traf)
 
-# # for testing adjoint
-# f1 = F_mat.H @ f
-# norm_euclidean = np.linalg.norm(f1 - plan.fhat)
-# norm_infinity = np.linalg.norm(f1 - plan.fhat, np.inf)
-
-print("Euclidean norm:", norm_euclidean)
-print("Infinity norm:", norm_infinity)
+# for testing transpose
+f1 = F_mat.H @ f
+norm_euclidean_adj = np.linalg.norm(f1 - plan_adj.fhat)
+norm_infinity_adj = np.linalg.norm(f1 - plan_adj.fhat, np.inf)
+print("Euclidean norm for transpose test:", norm_euclidean_adj)
+print("Infinity norm for transpose test:", norm_infinity_adj)

@@ -233,6 +233,10 @@ class NFFT:
             nfftlib.jnfft_set_fhat.restype = np.ctypeslib.ndpointer(np.complex128, ndim=1, shape=Ns, flags='C') 
             self._fhat = nfftlib.jnfft_set_fhat(self.plan, value)
 
+    @property
+    def num_threads(self):
+        return nfftlib.nfft_get_num_threads()
+
     # # nfft trafo direct [call with NFFT.trafo_direct outside module]
     # """
     #     nfft_trafo_direct(P)

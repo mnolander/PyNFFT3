@@ -54,26 +54,31 @@ from . import fastsum_plan
 # """
 
 # Set arugment and return types for functions
-nfstlib.jnfst_init.argtypes = [ctypes.POINTER(nfst_plan), 
-                               ctypes.c_int32, 
-                               ctypes.POINTER(ctypes.c_int32), 
-                               ctypes.c_int32, 
-                               ctypes.POINTER(ctypes.c_int32), 
-                               ctypes.c_int32, 
-                               ctypes.c_uint32, 
-                               ctypes.c_uint32]
+fastsumlib.jfastsum_init.argtypes = [ctypes.POINTER(fastsum_plan), 
+                               ctypes.c_int,
+                               ctypes.c_wchar_p,
+                               ctypes.POINTER(ctypes.c_float),
+                               ctypes.c_uint,
+                               ctypes.c_int,
+                               ctypes.c_int,
+                               ctypes.c_float,
+                               ctypes.c_float,
+                               ctypes.c_int,
+                               ctypes.c_int,
+                               ctypes.c_int,
+                               ctypes.c_int, 
+                               ctypes.c_int,
+                               ctypes.c_int]
 
-nfstlib.jnfst_alloc.restype = ctypes.POINTER(nfst_plan)
-nfstlib.jnfst_finalize.argtypes = [ctypes.POINTER(nfst_plan)]
+fastsumlib.jfastsum_alloc.restype = ctypes.POINTER(fastsum_plan)
+fastsumlib.jfastsum_finalize.argtypes = [ctypes.POINTER(fastsum_plan)]
 
-nfstlib.jnfst_set_x.argtypes = [ctypes.POINTER(nfst_plan), np.ctypeslib.ndpointer(np.float64, flags='C')]
-nfstlib.jnfst_set_f.argtypes = [ctypes.POINTER(nfst_plan), np.ctypeslib.ndpointer(np.float64, ndim=1, flags='C')] 
-nfstlib.jnfst_set_fhat.argtypes = [ctypes.POINTER(nfst_plan), np.ctypeslib.ndpointer(np.float64, ndim=1, flags='C')] 
+fastsumlib.jfastsum_set_x.argtypes = [ctypes.POINTER(fastsum_plan), np.ctypeslib.ndpointer(np.float64, flags='C')]
+fastsumlib.jfastsum_set_y.argtypes = [ctypes.POINTER(fastsum_plan), np.ctypeslib.ndpointer(np.float64, flags='C')] 
+fastsumlib.jfastsum_set_alpha.argtypes = [ctypes.POINTER(fastsum_plan), np.ctypeslib.ndpointer(np.complex128, flags='C')] 
 
-nfstlib.jnfst_trafo.argtypes = [ctypes.POINTER(nfst_plan)]
-nfstlib.jnfst_adjoint.argtypes = [ctypes.POINTER(nfst_plan)]
-nfstlib.jnfst_trafo_direct.argtypes = [ctypes.POINTER(nfst_plan)]
-nfstlib.jnfst_adjoint_direct.argtypes = [ctypes.POINTER(nfst_plan)]
+fastsumlib.jfastsum_trafo.argtypes = [ctypes.POINTER(fastsum_plan)]
+fastsumlib.jfastsum_exact.argtypes = [ctypes.POINTER(fastsum_plan)]
 
 class FASTSUM:
     def __init__(self, d, N, M, kernel, c, n=256, p=8, eps_I=256/8, eps_B=1/16, nn=512, m=8):
@@ -124,3 +129,183 @@ class FASTSUM:
 
     def finalize_plan(self):
         return self.fastsum_finalize_plan()
+    
+    # """
+    #     fastsum_init(P)
+
+    # intialises a transform plan.
+
+    # # Input
+    # * `P` - a FASTSUM plan structure.
+
+    # # See also
+    # [`FASTSUM{D}`](@ref), [`fastsum_finalize_plan`](@ref)
+    # """
+
+    def fastsum_init(self):
+        # Convert c to numpy array for passing them to C
+        Cv = np.array(self.c, dtype=np.int32)
+
+        # Call init for memory allocation
+        ptr = fastsumlib.jfastsum_alloc()
+
+        # Set the pointer
+        self.plan = ctypes.cast(ptr, ctypes.POINTER(fastsum_plan))
+
+        # Initialize values
+        code = fastsumlib.jfastsum_init(
+            self.plan,
+            ctypes.c_int(self.d),
+            self.kernel,
+            ctypes.cast(Cv.ctypes.data, ctypes.POINTER(ctypes.c_float)),
+            ctypes.c_uint(self.flags),
+            ctypes.c_int(self.n),
+            ctypes.c_int(self.p),
+            ctypes.c_float(self.eps_I),
+            ctypes.c_float(self.eps_B),
+            ctypes.c_int(self.N),
+            ctypes.c_int(self.M),
+            ctypes.c_int(self.nn_x),
+            ctypes.c_int(self.nn_y),
+            ctypes.c_int(self.m_x),
+            ctypes.c_int(self.m_y)
+        )
+        self.init_done = True
+
+        if code == 1:
+            raise RuntimeError("Unkown kernel")
+
+        atexit.register(self.fastsum_finalize_plan())
+
+    def init(self):
+        return self.fastsum_init()
+    
+    @property
+    def x(self):
+        return self._X
+
+    @x.setter 
+    def x(self, value):
+        if value is not None:
+            if self.D == 1:
+                if not (isinstance(value, np.ndarray) and value.dtype == np.float64):
+                    raise RuntimeError("x has to be a numpy float64 array")
+                if not value.flags['C']:
+                    raise RuntimeError("x has to be C-continuous")
+                if value.size != self.N:
+                    raise ValueError(f"x has to be an array of size {self.N}")
+                fastsumlib.jfastsum_set_x.restype = np.ctypeslib.ndpointer(dtype=np.float64, ndim=2, shape=self.N, flags='C')
+            else:
+                if not isinstance(value, np.ndarray) or value.dtype != np.float64 or value.ndim != 2:
+                    raise ValueError("x has to be a Float64 matrix.")
+                if value.shape[0] != self.N or value.shape[1] != self.d:
+                    raise ValueError("x has to be a Float64 matrix of size (N, d).")
+                fastsumlib.jfastsum_set_x.restype = np.ctypeslib.ndpointer(dtype=np.float64, ndim=2, shape=(self.N,self.d), flags='C')
+            self._X = fastsumlib.jfastsum_set_x(self.plan, value)
+
+    @property
+    def y(self):
+        return self._Y
+
+    @y.setter 
+    def y(self, value):
+        if value is not None:
+            if self.D == 1:
+                if not (isinstance(value, np.ndarray) and value.dtype == np.float64):
+                    raise RuntimeError("y has to be a numpy float64 array")
+                if not value.flags['C']:
+                    raise RuntimeError("y has to be C-continuous")
+                if value.size != self.M:
+                    raise ValueError(f"y has to be an array of size {self.M}")
+                fastsumlib.jfastsum_set_y.restype = np.ctypeslib.ndpointer(dtype=np.float64, ndim=2, shape=self.M, flags='C')
+            else:
+                if not isinstance(value, np.ndarray) or value.dtype != np.float64 or value.ndim != 2:
+                    raise ValueError("y has to be a Float64 matrix.")
+                if value.shape[0] != self.M or value.shape[1] != self.d:
+                    raise ValueError("y has to be a Float64 matrix of size (N, d).")
+                fastsumlib.jfastsum_set_y.restype = np.ctypeslib.ndpointer(dtype=np.float64, ndim=2, shape=(self.M,self.d), flags='C')
+            self._Y = fastsumlib.jfastsum_set_y(self.plan, value)
+
+    @property
+    def alpha(self):
+        return self._Alpha
+
+    @alpha.setter 
+    def alpha(self, value):
+        if value is not None:
+            if not (isinstance(value, np.ndarray) and value.dtype == np.complex128):
+                raise RuntimeError("alpha has to be a numpy complex128 array")
+            if not value.flags['C']:
+                raise RuntimeError("alpha has to be C-continuous")
+            if value.size != self.N:
+                raise ValueError(f"alpha has to be an array of size {self.N}")
+            fastsumlib.jfastsum_set_alpha.restype = np.ctypeslib.ndpointer(dtype=np.float64, ndim=2, shape=self.N, flags='C')
+            self._Alpha = fastsumlib.jfastsum_set_alpha(self.plan, value)
+
+    # """
+    #     fastsum_trafo(P)
+
+    # fast NFFT-based summation.
+
+    # # Input
+    # * `P` - a FASTSUM plan structure.
+
+    # # See also
+    # [`FASTSUM{D}`](@ref), [`fastsum_trafo_exact`](@ref)
+    # """
+
+    def fastsum_trafo(self):
+        Ns = np.prod(self.N)
+        # fastsumlib.jfastsum_trafo.restype = np.ctypeslib.ndpointer(np.float64, shape=Ns, flags='C')
+        # Prevent bad stuff from happening
+        if self.finalized:
+            raise RuntimeError("FASTSUM already finalized")
+
+        if not hasattr(self, 'y'):
+            raise ValueError("y has not been set.")
+
+        if not hasattr(self, 'x'):
+            raise ValueError("x has not been set.")
+        
+        if not hasattr(self, 'alpha'):
+            raise ValueError("alpha has not been set.")
+
+        ptr = fastsumlib.jfastsum_trafo(self.plan)
+        self.f = ptr
+
+    def trafo(self):
+        return self.fastsum_trafo()
+    
+    # """
+    #     fastsum_trafo_exact(P)
+
+    # direct computation of sums.
+
+    # # Input
+    # * `P` - a FASTSUM plan structure.
+
+    # # See also
+    # [`FASTSUM{D}`](@ref), [`fastsum_trafo`](@ref)
+    # """
+
+    def fastsum_trafo_exact(self):
+        Ns = np.prod(self.N)
+        # fastsumlib.jfastsum_trafo.restype = np.ctypeslib.ndpointer(np.float64, shape=Ns, flags='C')
+        # Prevent bad stuff from happening
+        if self.finalized:
+            raise RuntimeError("FASTSUM already finalized")
+
+        if not hasattr(self, 'y'):
+            raise ValueError("y has not been set.")
+
+        if not hasattr(self, 'x'):
+            raise ValueError("x has not been set.")
+        
+        if not hasattr(self, 'alpha'):
+            raise ValueError("alpha has not been set.")
+
+        ptr = fastsumlib.jfastsum_exact(self.plan)
+        self.f = ptr
+
+    def trafoexact(self):
+        return self.fastsum_trafo_exact()

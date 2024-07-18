@@ -57,7 +57,7 @@ from . import fastsum_plan
 fastsumlib.jfastsum_init.argtypes = [ctypes.POINTER(fastsum_plan), 
                                ctypes.c_int,
                                ctypes.c_wchar_p,
-                               ctypes.POINTER(ctypes.c_float),
+                               np.ctypeslib.ndpointer(np.float64, flags='C'),
                                ctypes.c_uint,
                                ctypes.c_int,
                                ctypes.c_int,
@@ -73,7 +73,7 @@ fastsumlib.jfastsum_init.argtypes = [ctypes.POINTER(fastsum_plan),
 fastsumlib.jfastsum_alloc.restype = ctypes.POINTER(fastsum_plan)
 fastsumlib.jfastsum_finalize.argtypes = [ctypes.POINTER(fastsum_plan)]
 
-fastsumlib.jfastsum_set_x.argtypes = [ctypes.POINTER(fastsum_plan), np.ctypeslib.ndpointer(np.float64, flags='C')]
+fastsumlib.jfastsum_set_x.argtypes = [ctypes.POINTER(fastsum_plan), np.ctypeslib.ndpointer(np.float64)]
 fastsumlib.jfastsum_set_y.argtypes = [ctypes.POINTER(fastsum_plan), np.ctypeslib.ndpointer(np.float64, flags='C')] 
 fastsumlib.jfastsum_set_alpha.argtypes = [ctypes.POINTER(fastsum_plan), np.ctypeslib.ndpointer(np.complex128, flags='C')] 
 
@@ -106,10 +106,10 @@ class FASTSUM:
         self.nn_y = nn  # oversampled nn in y
         self.m_x = m  # NFFT-cutoff in x
         self.m_y = m  # NFFT-cutoff in y
-        fastsumlib.jfastsum_init(self.plan)
+        self.flags = 0  # flags
+        fastsumlib.jfastsum_init(self.plan, self.d, self.kernel, self.c, self.flags, self.n, self.p, self.eps_I, self.eps_B, self.N, self.M, self.nn_x, self.nn_y, self.m_x, self.m_y)
         self.init_done = True  # bool for plan init
         self.finalized = False  # bool for finalizer
-        self.flags = 0  # flags
         self.x = None  # source nodes
         self.y = None  # target nodes
         self.alpha = None  # source coefficients
@@ -187,21 +187,23 @@ class FASTSUM:
     @x.setter 
     def x(self, value):
         if value is not None:
-            if self.D == 1:
+            if self.d == 1:
                 if not (isinstance(value, np.ndarray) and value.dtype == np.float64):
                     raise RuntimeError("x has to be a numpy float64 array")
                 if not value.flags['C']:
                     raise RuntimeError("x has to be C-continuous")
                 if value.size != self.N:
                     raise ValueError(f"x has to be an array of size {self.N}")
-                fastsumlib.jfastsum_set_x.restype = np.ctypeslib.ndpointer(dtype=np.float64, ndim=2, shape=self.N, flags='C')
+                #fastsumlib.jfastsum_set_x.restype = np.ctypeslib.ndpointer(dtype=np.float64, ndim=2, shape=self.N, flags='C')
             else:
                 if not isinstance(value, np.ndarray) or value.dtype != np.float64 or value.ndim != 2:
                     raise ValueError("x has to be a Float64 matrix.")
                 if value.shape[0] != self.N or value.shape[1] != self.d:
                     raise ValueError("x has to be a Float64 matrix of size (N, d).")
-                fastsumlib.jfastsum_set_x.restype = np.ctypeslib.ndpointer(dtype=np.float64, ndim=2, shape=(self.N,self.d), flags='C')
-            self._X = fastsumlib.jfastsum_set_x(self.plan, value)
+                #fastsumlib.jfastsum_set_x.restype = np.ctypeslib.ndpointer(dtype=np.float64, ndim=2, shape=(self.N,self.d), flags='C')
+            x_out = fastsumlib.jfastsum_set_x(self.plan, value)
+            print("Xout=",x_out)
+            self._X = x_out
 
     @property
     def y(self):
@@ -210,7 +212,7 @@ class FASTSUM:
     @y.setter 
     def y(self, value):
         if value is not None:
-            if self.D == 1:
+            if self.d == 1:
                 if not (isinstance(value, np.ndarray) and value.dtype == np.float64):
                     raise RuntimeError("y has to be a numpy float64 array")
                 if not value.flags['C']:

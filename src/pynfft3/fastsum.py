@@ -200,7 +200,7 @@ class FASTSUM:
                     raise ValueError("x has to be a Float64 matrix.")
                 if value.shape[0] != self.N or value.shape[1] != self.d:
                     raise ValueError("x has to be a Float64 matrix of size (N, d).")
-                #fastsumlib.jfastsum_set_x.restype = np.ctypeslib.ndpointer(dtype=np.float64, ndim=2, shape=(self.N,self.d), flags='C')
+                fastsumlib.jfastsum_set_x.restype = np.ctypeslib.ndpointer(dtype=np.float64)
             x_out = fastsumlib.jfastsum_set_x(self.plan, value)
             print("Xout=",x_out)
             self._X = x_out

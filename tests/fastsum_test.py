@@ -33,12 +33,12 @@ plan.y = Y
 # Test trafo
 plan.fastsum_trafo()
 f1 = np.copy(plan.f)
-print("F1=",f1)
+print("f1: ",f1)
 
 # Test trafo exact
 plan.fastsum_trafo_exact()
 f2 = np.copy(plan.f)
-print("F2=",f2)
+print("f2: ",f2)
 
 # Calculate the error vector
 error_vector = f1 - f2
@@ -48,5 +48,5 @@ E_2 = np.linalg.norm(error_vector) / np.linalg.norm(f1)
 E_infty = np.linalg.norm(error_vector, np.inf) / np.linalg.norm(plan.alpha, 1)
 
 # Print the errors
-print("E_2:", E_2)
-print("E_infty:", E_infty)
+print("E_2: ", E_2)
+print("E_infty: ", E_infty)

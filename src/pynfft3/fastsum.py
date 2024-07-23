@@ -74,7 +74,7 @@ fastsumlib.jfastsum_finalize.argtypes = [ctypes.POINTER(fastsum_plan)]
 
 fastsumlib.jfastsum_set_x.argtypes = [ctypes.POINTER(fastsum_plan), np.ctypeslib.ndpointer(np.float64)]
 fastsumlib.jfastsum_set_y.argtypes = [ctypes.POINTER(fastsum_plan), np.ctypeslib.ndpointer(np.float64, flags='C')] 
-fastsumlib.jfastsum_set_alpha.argtypes = [ctypes.POINTER(fastsum_plan), np.ctypeslib.ndpointer(np.complex128, flags='C')] 
+fastsumlib.jfastsum_set_alpha.argtypes = [ctypes.POINTER(fastsum_plan), np.ctypeslib.ndpointer(np.complex128, flags='C')]
 
 fastsumlib.jfastsum_trafo.argtypes = [ctypes.POINTER(fastsum_plan)]
 fastsumlib.jfastsum_exact.argtypes = [ctypes.POINTER(fastsum_plan)]
@@ -243,6 +243,8 @@ class FASTSUM:
                 raise RuntimeError("alpha has to be C-continuous")
             if value.size != self.N:
                 raise ValueError(f"alpha has to be an array of size {self.N}")
+            Ns = np.prod(self.N)
+            fastsumlib.jfastsum_set_alpha.restype = np.ctypeslib.ndpointer(np.complex128, shape=Ns, flags='C')
             self._Alpha = fastsumlib.jfastsum_set_alpha(self.plan, value)
 
     # """
@@ -259,7 +261,7 @@ class FASTSUM:
 
     def fastsum_trafo(self):
         Ns = np.prod(self.N)
-        # fastsumlib.jfastsum_trafo.restype = np.ctypeslib.ndpointer(np.float64, shape=Ns, flags='C')
+        fastsumlib.jfastsum_trafo.restype = np.ctypeslib.ndpointer(np.float64, shape=Ns, flags='C')
         # Prevent bad stuff from happening
         if self.finalized:
             raise RuntimeError("FASTSUM already finalized")
@@ -293,7 +295,7 @@ class FASTSUM:
 
     def fastsum_trafo_exact(self):
         Ns = np.prod(self.N)
-        # fastsumlib.jfastsum_trafo.restype = np.ctypeslib.ndpointer(np.float64, shape=Ns, flags='C')
+        fastsumlib.jfastsum_exact.restype = np.ctypeslib.ndpointer(np.float64, shape=Ns, flags='C')
         # Prevent bad stuff from happening
         if self.finalized:
             raise RuntimeError("FASTSUM already finalized")

@@ -33,10 +33,12 @@ plan.y = Y
 # Test trafo
 plan.fastsum_trafo()
 f1 = np.copy(plan.f)
+print("F1=",f1)
 
 # Test trafo exact
 plan.fastsum_trafo_exact()
 f2 = np.copy(plan.f)
+print("F2=",f2)
 
 # Calculate the error vector
 error_vector = f1 - f2

@@ -14,15 +14,10 @@ eps_B = 1 / 16
 # Create a FASTSUM object in Python
 plan = FASTSUM(d, N, M, kernel, c)
 
-print(f"FASTSUM: (d={plan.d}, N={plan.N}, M={plan.M}, n={plan.n}, p={plan.p}, kernel={plan.kernel}, "
-            f"c={plan.c}, eps_I={plan.eps_I}, eps_B={plan.eps_B}, nn_x={plan.nn_x}, nn_y={plan.nn_y}, "
-            f"m_x={plan.m_x}, m_y={plan.m_y}, init_done={plan.init_done}, finalized={plan.finalized}, flags={plan.flags})")
-
 # Generate source nodes in circle of radius 0.25 - eps_B / 2
 r = np.sqrt(np.random.rand(N)) * (0.25 - eps_B / 2)
 phi = np.random.rand(N) * (2 * np.pi)
-X = np.column_stack((r * np.cos(phi), r * np.sin(phi)))
-print("X:",X)
+X = np.vstack((r * np.cos(phi), r * np.sin(phi)))
 plan.x = X
 
 # Generate coefficients alpha_k
@@ -34,3 +29,22 @@ r = np.sqrt(np.random.rand(M)) * (0.25 - eps_B / 2)
 phi = np.random.rand(M) * (2 * np.pi)
 Y = np.column_stack((r * np.cos(phi), r * np.sin(phi)))
 plan.y = Y
+
+# Test trafo
+plan.fastsum_trafo()
+f1 = np.copy(plan.f)
+
+# Test trafo exact
+plan.fastsum_trafo_exact()
+f2 = np.copy(plan.f)
+
+# Calculate the error vector
+error_vector = f1 - f2
+
+# Calculate the norms
+E_2 = np.linalg.norm(error_vector) / np.linalg.norm(f1)
+E_infty = np.linalg.norm(error_vector, np.inf) / np.linalg.norm(plan.alpha, 1)
+
+# Print the errors
+print("E_2:", E_2)
+print("E_infty:", E_infty)

@@ -17,7 +17,8 @@ plan = FASTSUM(d, N, M, kernel, c)
 # Generate source nodes in circle of radius 0.25 - eps_B / 2
 r = np.sqrt(np.random.rand(N)) * (0.25 - eps_B / 2)
 phi = np.random.rand(N) * (2 * np.pi)
-X = np.vstack((r * np.cos(phi), r * np.sin(phi)))
+X = np.column_stack((r * np.cos(phi), r * np.sin(phi)))
+print("Xbef: ",X)
 plan.x = X
 
 # Generate coefficients alpha_k
@@ -29,6 +30,10 @@ r = np.sqrt(np.random.rand(M)) * (0.25 - eps_B / 2)
 phi = np.random.rand(M) * (2 * np.pi)
 Y = np.column_stack((r * np.cos(phi), r * np.sin(phi)))
 plan.y = Y
+
+print("X: ",plan.x)
+print("Y: ",plan.y)
+print("alpha: ",plan.alpha)
 
 # Test trafo
 plan.fastsum_trafo()

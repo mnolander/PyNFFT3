@@ -195,15 +195,14 @@ class FASTSUM:
                     raise RuntimeError("x has to be C-continuous")
                 if value.size != self.N:
                     raise ValueError(f"x has to be an array of size {self.N}")
-                #fastsumlib.jfastsum_set_x.restype = np.ctypeslib.ndpointer(dtype=np.float64, ndim=2, shape=self.N, flags='C')
+                fastsumlib.jfastsum_set_x.restype = np.ctypeslib.ndpointer(dtype=np.float64, ndim=2, shape=self.N, flags='C')
             else:
                 if not isinstance(value, np.ndarray) or value.dtype != np.float64 or value.ndim != 2:
                     raise ValueError("x has to be a Float64 matrix.")
-                if value.shape[1] != self.N or value.shape[0] != self.d:
-                    raise ValueError("x has to be a Float64 matrix of size (N, d).")
-                fastsumlib.jfastsum_set_x.restype = np.ctypeslib.ndpointer(dtype=np.float64)
-            x_out = fastsumlib.jfastsum_set_x(self.plan, value)
-            self._X = x_out
+                if value.shape[0] != self.N or value.shape[1] != self.d:
+                    raise ValueError(f"x has to be a Float64 matrix of size {self.N}")
+                fastsumlib.jfastsum_set_x.restype = np.ctypeslib.ndpointer(dtype=np.float64, ndim=2, shape=(self.N,self.d), flags='C')
+            self._X = fastsumlib.jfastsum_set_x(self.plan, value)
 
     @property
     def y(self):
@@ -221,11 +220,13 @@ class FASTSUM:
                     raise RuntimeError("y has to be C-continuous")
                 if value.size != self.M:
                     raise ValueError(f"y has to be an array of size {self.M}")
+                fastsumlib.jfastsum_set_y.restype = np.ctypeslib.ndpointer(dtype=np.float64, ndim=2, shape=self.M, flags='C')
             else:
                 if not isinstance(value, np.ndarray) or value.dtype != np.float64 or value.ndim != 2:
                     raise ValueError("y has to be a Float64 matrix.")
                 if value.shape[0] != self.M or value.shape[1] != self.d:
-                    raise ValueError("y has to be a Float64 matrix of size (N, d).")
+                    raise ValueError(f"y has to be a Float64 matrix of size {self.M}")
+                fastsumlib.jfastsum_set_y.restype = np.ctypeslib.ndpointer(dtype=np.float64, ndim=2, shape=(self.M,self.d), flags='C')
             self._Y = fastsumlib.jfastsum_set_y(self.plan, value)
 
     @property
@@ -243,8 +244,7 @@ class FASTSUM:
                 raise RuntimeError("alpha has to be C-continuous")
             if value.size != self.N:
                 raise ValueError(f"alpha has to be an array of size {self.N}")
-            Ns = np.prod(self.N)
-            fastsumlib.jfastsum_set_alpha.restype = np.ctypeslib.ndpointer(np.complex128, shape=Ns, flags='C')
+            fastsumlib.jfastsum_set_alpha.restype = np.ctypeslib.ndpointer(np.complex128, shape=self.N, flags='C')
             self._Alpha = fastsumlib.jfastsum_set_alpha(self.plan, value)
 
     # """
@@ -260,8 +260,7 @@ class FASTSUM:
     # """
 
     def fastsum_trafo(self):
-        Ns = np.prod(self.N)
-        fastsumlib.jfastsum_trafo.restype = np.ctypeslib.ndpointer(np.float64, shape=Ns, flags='C')
+        fastsumlib.jfastsum_trafo.restype = np.ctypeslib.ndpointer(np.complex128, shape=self.M, flags='C')
         # Prevent bad stuff from happening
         if self.finalized:
             raise RuntimeError("FASTSUM already finalized")
@@ -294,8 +293,7 @@ class FASTSUM:
     # """
 
     def fastsum_trafo_exact(self):
-        Ns = np.prod(self.N)
-        fastsumlib.jfastsum_exact.restype = np.ctypeslib.ndpointer(np.float64, shape=Ns, flags='C')
+        fastsumlib.jfastsum_exact.restype = np.ctypeslib.ndpointer(np.complex128, shape=self.M, flags='C')
         # Prevent bad stuff from happening
         if self.finalized:
             raise RuntimeError("FASTSUM already finalized")

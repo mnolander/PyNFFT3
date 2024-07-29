@@ -18,7 +18,6 @@ plan = FASTSUM(d, N, M, kernel, c)
 r = np.sqrt(np.random.rand(N)) * (0.25 - eps_B / 2)
 phi = np.random.rand(N) * (2 * np.pi)
 X = np.column_stack((r * np.cos(phi), r * np.sin(phi)))
-print("Xbef: ",X)
 plan.x = X
 
 # Generate coefficients alpha_k
@@ -47,6 +46,7 @@ print("f2: ",f2)
 
 # Calculate the error vector
 error_vector = f1 - f2
+print("Error vector: ", error_vector)
 
 # Calculate the norms
 E_2 = np.linalg.norm(error_vector) / np.linalg.norm(f1)

@@ -1,7 +1,5 @@
-import warnings
 import ctypes
 import numpy as np
-import atexit
 from .flags import *
 from . import nfctlib
 from . import nfct_plan
@@ -121,6 +119,9 @@ class NFCT:
         self.f = None  # function values
         self.fhat = None  # Fourier coefficients
 
+    def __del__(self):
+        self.finalize_plan()
+
     # # finalizer
     # """
     #     nfct_finalize_plan(P::NFCT{D})
@@ -185,8 +186,6 @@ class NFCT:
             ctypes.c_uint(self.f2)
         )
         self.init_done = True
-
-        atexit.register(self.nfct_finalize_plan())
 
     def init(self):
         return self.nfct_init()

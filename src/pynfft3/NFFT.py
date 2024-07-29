@@ -1,7 +1,5 @@
-import warnings
 import ctypes
 import numpy as np
-import atexit
 from .flags import *
 from . import nfftlib
 from . import nfft_plan
@@ -123,6 +121,9 @@ class NFFT:
         self.x = None  # nodes, will be set later
         self.f = None  # function values
         self.fhat = None  # Fourier coefficients
+
+    def __del__(self):
+        self.finalize_plan()
     
     # # finalizer
     # """
@@ -187,8 +188,6 @@ class NFFT:
             ctypes.c_uint(self.f2)
         )
         self.init_done = True
-
-        atexit.register(self.nfft_finalize_plan())
 
     def init(self):
         return self.nfft_init()

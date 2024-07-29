@@ -1,6 +1,4 @@
 import ctypes
-import numpy as np
-from numpy import ctypeslib
 import os
 
 # Create dummy classes for plans
@@ -10,6 +8,8 @@ class nfst_plan(ctypes.Structure):
     pass
 class nfct_plan(ctypes.Structure):
     pass
+# class nfmt_plan(ctypes.Structure):
+#     pass
 class fastsum_plan(ctypes.Structure):
     pass
 
@@ -26,25 +26,27 @@ package_dir = os.path.dirname(__file__)
 lib_path_nfft = os.path.join(package_dir, "libnfftjulia" + ending)
 lib_path_nfct = os.path.join(package_dir, "libnfctjulia" + ending)
 lib_path_nfst = os.path.join(package_dir, "libnfstjulia" + ending)
+# lib_path_nfmt = os.path.join(package_dir, "libnfmtjulia" + ending)
 lib_path_fastsum = os.path.join(package_dir, "libfastsumjulia" + ending)
 
 # Load the libraries
 nfftlib = ctypes.CDLL(lib_path_nfft)
 nfctlib = ctypes.CDLL(lib_path_nfct)
 nfstlib = ctypes.CDLL(lib_path_nfst)
+# nfstlib = ctypes.CDLL(lib_path_nfst)
 fastsumlib = ctypes.CDLL(lib_path_fastsum)
 
 # Import modules
 from .NFFT import *
 from .NFCT import *
 from .NFST import *
-from .NFFCT import *
+# from .NFMT import *
 from .fastsum import *
 from .flags import *
 
 # Export functions and flags
 __all__ = [
-    'NFFT', 'NFCT', 'NFST', 'FASTSUM', 'NFFCT',
+    'NFFT', 'NFCT', 'NFST', 'FASTSUM', 'NFMT',
     'nfft_finalize_plan', 'nfft_init', 'nfft_trafo', 'nfft_adjoint',
     'nfft_trafo_direct', 'nfft_adjoint_direct', 'nfct_finalize_plan',
     'nfct_init', 'nfct_trafo', 'nfct_adjoint', 'nfct_transposed',
